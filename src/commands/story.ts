@@ -1,7 +1,9 @@
 import { input, select } from "@inquirer/prompts";
+import { mkdir, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import ora from "ora";
 import { isStoryNotFoundError, TapdClient } from "../api.js";
-import { requireWorkspace, resolveWorkspaceContext } from "../config.js";
+import { requireWorkspace, resolveWorkspaceContext, loadConfig } from "../config.js";
 import {
   convertLocalImageReferences,
   hasLocalImageReferences,
@@ -9,10 +11,10 @@ import {
   stripLocalDocumentLinks
 } from "../local-assets.js";
 import { convertMermaidBlocks, hasMermaidBlocks, imageDataUri as mermaidImageDataUri } from "../mermaid.js";
-import { markdownToHtml, readMarkdown, titleFromDocument, writeFrontmatter } from "../markdown.js";
+import { htmlToMarkdown, markdownToHtml, readMarkdown, titleFromDocument, writeMarkdown, writeFrontmatter } from "../markdown.js";
 import { getToken } from "../session.js";
-import type { Story } from "../types.js";
-import { info, success, table, truncate, workspaceBanner } from "../ui.js";
+import type { Story, StoryFrontmatter } from "../types.js";
+import { exitHint, info, success, table, truncate, workspaceBanner } from "../ui.js";
 
 type StoryListOptions = {
   workspaceId?: string;
@@ -281,6 +283,7 @@ export function registerStory(program: import("commander").Command): void {
   tapd story create ./需求.md
   tapd story update ./需求.md
   tapd story get 1147232921001000017
+  tapd story pull 1147232921001000017
 
 Markdown frontmatter：
   ---
@@ -406,8 +409,15 @@ Markdown frontmatter：
       const client = new TapdClient();
       const token = await getToken(client);
 
+      // 获取配置中的默认创建人
+      const config = await loadConfig();
+      const defaultCreator = config.defaultCreator;
+
+      if (!doc.frontmatter.iteration_id || (!doc.frontmatter.creator && !defaultCreator)) {
+        exitHint();
+      }
       const iterationId = doc.frontmatter.iteration_id ?? await chooseIteration(client, token, workspaceId);
-      const creator = doc.frontmatter.creator ?? await chooseCreator(client, token, workspaceId);
+      const creator = doc.frontmatter.creator ?? defaultCreator ?? await chooseCreator(client, token, workspaceId);
 
       const spinner = ora("创建 TAPD 需求").start();
       const created = await createStoryFromMarkdown(file, doc, client, token, workspaceId, iterationId, creator, spinner);
@@ -499,5 +509,106 @@ Markdown frontmatter：
         modified: storyData.modified
       }]);
       info(truncate(storyData.description, 300));
+    });
+
+  story
+    .command("pull")
+    .argument("<story-id>", "TAPD 需求 ID")
+    .argument("[output-file]", "输出 Markdown 文件路径，默认为 <story-id>.md")
+    .description("拉取指定需求并转换为 Markdown 文件")
+    .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
+    .addHelpText("after", `
+示例：
+  tapd story pull 1147232921001000017
+  tapd story pull 1147232921001000017 ./需求.md
+  tapd story pull 1147232921001000017 --workspace-id 47232921
+
+说明：
+  会自动下载需求中的图片到 <output-file-dir>/assets/ 目录
+  并将 Markdown 中的图片链接替换为本地相对路径
+`)
+    .action(async (storyId: string, outputFile: string | undefined, options: { workspaceId?: string }) => {
+      const workspace = await resolveWorkspaceContext(process.cwd(), options.workspaceId);
+      workspaceBanner(workspace);
+      const workspaceId = workspace.id;
+      const client = new TapdClient();
+      const token = await getToken(client);
+
+      const spinner = ora("拉取 TAPD 需求").start();
+      const storyData = await client.getStory(token, workspaceId, storyId);
+      spinner.succeed("需求拉取成功");
+
+      const filePath = outputFile || `${storyId}.md`;
+      const fileDir = dirname(filePath);
+      const assetsDir = join(fileDir, "assets");
+
+      // 提取所有 TAPD 图片链接
+      const imageRegex = /!\[([^\]]*)\]\((\/tfl\/captures\/[^)]+)\)/g;
+      const images: Array<{ alt: string; url: string; match: string }> = [];
+      let match: RegExpExecArray | null;
+      const content = storyData.description ? htmlToMarkdown(storyData.description) : "";
+
+      while ((match = imageRegex.exec(content)) !== null) {
+        images.push({
+          alt: match[1],
+          url: match[2],
+          match: match[0]
+        });
+      }
+
+      let finalContent = content;
+
+      if (images.length > 0) {
+        spinner.start(`下载 ${images.length} 张图片`);
+        await mkdir(assetsDir, { recursive: true });
+
+        for (let i = 0; i < images.length; i++) {
+          const image = images[i];
+          const ext = image.url.match(/\.(\w+)$/)?.[1] || "png";
+          const filename = `image-${i + 1}.${ext}`;
+          const localPath = join(assetsDir, filename);
+          const relativePath = `./assets/${filename}`;
+
+          try {
+            const attachment = await client.getImage(token, {
+              workspaceId,
+              imagePath: image.url
+            });
+            if (!attachment.download_url) {
+              throw new Error("download_url 缺失");
+            }
+
+            const response = await fetch(attachment.download_url);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+
+            const buffer = await response.arrayBuffer();
+            await writeFile(localPath, Buffer.from(buffer));
+
+            // 替换 Markdown 中的链接
+            finalContent = finalContent.replace(image.match, `![${image.alt}](${relativePath})`);
+          } catch (error) {
+            spinner.warn(`图片下载失败: ${image.url} - ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+        spinner.succeed(`已下载 ${images.length} 张图片到 ${assetsDir}`);
+      }
+
+      const frontmatter: StoryFrontmatter = {
+        tapd_id: storyData.id,
+        title: storyData.name,
+        workspace_id: workspaceId,
+        iteration_id: storyData.iteration_id && storyData.iteration_id !== "0" ? storyData.iteration_id : undefined,
+        creator: storyData.creator,
+        owner: storyData.owner,
+        label: storyData.label,
+        status: storyData.status,
+        created_at: storyData.created,
+        updated_at: storyData.modified
+      };
+
+      await writeMarkdown(filePath, frontmatter, finalContent);
+      success(`已保存到 ${filePath}`);
     });
 }

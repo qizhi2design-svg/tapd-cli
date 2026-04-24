@@ -1,156 +1,118 @@
-# TAPD Markdown CLI
+# @huangqz/tapd-cli
 
-用本地 Markdown 管理 TAPD 需求、更新需求和评论。
+通过本地 Markdown 文件管理 TAPD 需求的命令行工具。
 
 ## 安装
 
 ```bash
-pnpm --dir cli install
-pnpm --dir cli lint
-pnpm --dir cli build
-npm install -g ./cli
+npm install -g @huangqz/tapd-cli
 ```
 
-也可以使用：
+## 快速开始
+
+### 1. 认证
 
 ```bash
-pnpm add -g ./cli
-npm link ./cli
+# 使用个人令牌认证
+tapd auth bind --mode personal --token YOUR_TOKEN --workspace-id YOUR_WORKSPACE_ID
+
+# 或使用开放应用凭证认证
+tapd auth bind --mode app --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
 ```
 
-安装后命令为：
+### 2. 初始化项目
 
 ```bash
-tapd -h
-```
-
-## 本地调试
-
-不需要先全局安装，可以直接用源码调试：
-
-```bash
-pnpm --dir cli tapd -h
-pnpm --dir cli tapd story create ./需求.md
-pnpm --dir cli tapd comment list 1147232921001000017 --workspace-id 47232921
-```
-
-统一检查：
-
-```bash
-pnpm --dir cli lint
-```
-
-构建后运行：
-
-```bash
-pnpm --dir cli build
-pnpm --dir cli start -h
-```
-
-## 开发软连接
-
-如果希望在任意目录直接运行 `tapd`，可以把当前 CLI 包软连接到 pnpm 全局命令目录：
-
-```bash
-pnpm --dir cli link:global
-tapd -h
-```
-
-等价手动命令：
-
-```bash
-pnpm --dir cli build
-cd cli
-pnpm link --global
-```
-
-当前机器的 pnpm 全局 bin 目录可通过下面命令查看：
-
-```bash
-pnpm bin -g
-```
-
-如果 `tapd` 提示找不到命令，确认该目录已加入 `PATH`。
-
-移除软连接：
-
-```bash
-pnpm --dir cli unlink:global
-```
-
-## 初始化
-
-```bash
-tapd auth bind
 tapd init
 ```
 
-配置文件写入当前项目：
+### 3. 创建需求
 
-- `.tapd/config.json`：`company_id`、默认 `workspace_id`
-- `.tapd/credentials.json`：应用 ID 和密钥
-
-`.tapd/credentials.json` 已被 `.gitignore` 忽略。
-
-### 认证方式
-
-支持两种认证方式。
-
-开放应用凭证：
-
-```bash
-tapd auth bind --mode app
-tapd auth bind --mode app --client-id tapd-app-xxx --client-secret xxx --company-id 41988264
-```
-
-个人令牌：
-
-```bash
-tapd auth bind --mode personal
-tapd auth bind --mode personal --personal-token xxx --workspace-id 58491787
-```
-
-个人令牌模式会使用 `workspace_id` 做只读验证，并自动反查 `company_id` 和默认空间。
-
-## Markdown 示例
+创建一个 Markdown 文件，例如 `需求.md`：
 
 ```markdown
 ---
-title: "需求标题"
-label: "local-md|cli"
-status: "planning"
+workspace_id: '58491787'
+iteration_id: '1158491787001000001'
 ---
 
-# 需求背景
+# 需求标题
 
-这里写需求正文。
+需求描述内容...
 
-## 验收标准
+## 功能点
 
-- 支持创建 TAPD 需求
-- 支持更新 TAPD 需求
+- 功能 1
+- 功能 2
 ```
 
-正文会转换为 HTML 后写入 TAPD `description`。
-
-## 常用命令
+然后执行：
 
 ```bash
-tapd workspace list
-tapd workspace add --workspace-id 58491787
-tapd workspace use
-tapd workspace use --workspace-id 58491787
-
-tapd story list
-tapd story list --all
-tapd story list --status planning
-tapd story list --iteration-id 1147232921001000005
-
 tapd story create ./需求.md
-tapd story update ./需求.md
-tapd story get 1147232921001000017
-
-tapd comment add ./需求.md --message "已完成评审"
-tapd comment add 1147232921001000017 --file ./comment.md
-tapd comment list ./需求.md
 ```
+
+### 4. 更新需求
+
+修改 Markdown 文件后：
+
+```bash
+tapd story update ./需求.md
+```
+
+## 主要功能
+
+- ✅ 支持 Markdown 格式编写需求
+- ✅ 自动转换 Markdown 为 TAPD HTML 格式
+- ✅ 支持 Mermaid 图表（自动渲染为图片）
+- ✅ 支持本地图片上传
+- ✅ 双向同步：从 TAPD 拉取需求到本地
+- ✅ 评论管理
+
+## 命令列表
+
+### 认证相关
+
+- `tapd auth bind` - 绑定 TAPD 凭证
+- `tapd auth status` - 查看认证状态
+
+### 工作空间
+
+- `tapd init` - 初始化项目配置
+- `tapd workspace list` - 列出所有工作空间
+- `tapd workspace use` - 切换默认工作空间
+
+### 需求管理
+
+- `tapd story create <file>` - 从 Markdown 创建需求
+- `tapd story update <file>` - 更新需求
+- `tapd story get <story-id>` - 获取需求内容摘要
+- `tapd story pull <story-id> [output-file]` - 拉取需求到本地 Markdown
+- `tapd story list` - 列出需求
+
+### 评论
+
+- `tapd comment add <file>` - 添加评论
+- `tapd comment list <file>` - 查看评论列表
+
+## Markdown Frontmatter 字段
+
+```yaml
+---
+tapd_id: '1158491787001631079'           # TAPD 需求 ID（更新时必需）
+workspace_id: '58491787'                 # 工作空间 ID
+iteration_id: '1158491787001000001'      # 迭代 ID
+creator: 'username'                       # 创建人
+owner: 'username'                         # 处理人
+label: 'feature'                          # 标签
+status: 'developing'                      # 状态
+---
+```
+
+## 许可证
+
+MIT
+
+## 问题反馈
+
+https://github.com/qizhi2design-svg/tapd-cli/issues

@@ -22,6 +22,11 @@ export type UploadImageBase64Params = {
   owner?: string;
 };
 
+export type GetImageParams = {
+  workspaceId: string;
+  imagePath: string;
+};
+
 export type ListStoriesParams = {
   workspaceId: string;
   limit?: number;
@@ -199,6 +204,18 @@ export class TapdClient {
       }
     });
     if (!response.data?.Attachment) throw new Error("上传图片成功但响应缺少 Attachment");
+    return response.data.Attachment;
+  }
+
+  async getImage(token: string, params: GetImageParams): Promise<Attachment> {
+    const response = await this.request<{ Attachment: Attachment }>("/files/get_image", {
+      token,
+      query: {
+        workspace_id: params.workspaceId,
+        image_path: params.imagePath
+      }
+    });
+    if (!response.data?.Attachment) throw new Error("获取图片成功但响应缺少 Attachment");
     return response.data.Attachment;
   }
 

@@ -18,6 +18,10 @@ export type UploadImageBase64Params = {
     customField?: string;
     owner?: string;
 };
+export type GetImageParams = {
+    workspaceId: string;
+    imagePath: string;
+};
 export type ListStoriesParams = {
     workspaceId: string;
     limit?: number;
@@ -40,6 +44,7 @@ export declare class TapdClient {
     createStory(token: string, payload: Record<string, string | undefined>): Promise<Story>;
     updateStory(token: string, payload: Record<string, string | undefined>): Promise<Story>;
     uploadImageBase64(token: string, params: UploadImageBase64Params): Promise<Attachment>;
+    getImage(token: string, params: GetImageParams): Promise<Attachment>;
     addComment(token: string, payload: Record<string, string | undefined>): Promise<Comment>;
     listComments(token: string, workspaceId: string, storyId: string): Promise<Comment[]>;
 }

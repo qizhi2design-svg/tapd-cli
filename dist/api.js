@@ -163,6 +163,18 @@ export class TapdClient {
             throw new Error("上传图片成功但响应缺少 Attachment");
         return response.data.Attachment;
     }
+    async getImage(token, params) {
+        const response = await this.request("/files/get_image", {
+            token,
+            query: {
+                workspace_id: params.workspaceId,
+                image_path: params.imagePath
+            }
+        });
+        if (!response.data?.Attachment)
+            throw new Error("获取图片成功但响应缺少 Attachment");
+        return response.data.Attachment;
+    }
     async addComment(token, payload) {
         const response = await this.request("/comments", {
             method: "POST",
