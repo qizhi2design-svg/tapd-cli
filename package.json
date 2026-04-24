@@ -1,0 +1,44 @@
+{
+  "name": "@local/tapd-cli",
+  "version": "0.1.0",
+  "description": "Manage TAPD stories from local Markdown files.",
+  "type": "module",
+  "bin": {
+    "tapd": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "link:global": "pnpm build && pnpm link --global",
+    "lint": "pnpm typecheck && pnpm test",
+    "start": "node dist/index.js",
+    "tapd": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "unlink:global": "pnpm unlink --global @local/tapd-cli"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.2.1",
+    "chalk": "^5.4.1",
+    "commander": "^13.0.0",
+    "gray-matter": "^4.0.3",
+    "marked": "^15.0.6",
+    "ora": "^8.1.1",
+    "strip-ansi": "^7.1.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.19.0"
+}
