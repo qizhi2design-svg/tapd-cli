@@ -6,7 +6,7 @@ import { TapdClient } from "../api.js";
 import { resolveWorkspaceContext } from "../config.js";
 import { markdownToHtml, readMarkdown } from "../markdown.js";
 import { getToken } from "../session.js";
-import { success, table, truncate, workspaceBanner } from "../ui.js";
+import { currentWorkspaceHelpText, success, table, truncate, withSpinner, workspaceBanner } from "../ui.js";
 async function resolveStoryId(value) {
     if (!existsSync(value))
         return { storyId: value };
@@ -19,6 +19,8 @@ export function registerComment(program) {
     const comment = program
         .command("comment")
         .description("TAPD 需求评论")
+        .addHelpCommand(false)
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .addHelpText("after", `
 示例：
   tapd comment add ./需求.md --message "已评审"
@@ -29,6 +31,7 @@ export function registerComment(program) {
         .command("add")
         .argument("<markdown-file-or-story-id>", "Markdown 文件或 TAPD 需求 ID")
         .description("添加需求评论")
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .addOption(new Option("-m, --message <text>", "评论 Markdown 文本").conflicts("file"))
         .addOption(new Option("-f, --file <file>", "评论 Markdown 文件").conflicts("message"))
         .option("-w, --workspace-id <id>", "覆盖 workspace_id")
@@ -53,20 +56,23 @@ export function registerComment(program) {
         const client = new TapdClient();
         const token = await getToken(client);
         const spinner = ora("添加评论").start();
-        const created = await client.addComment(token, {
+        const created = await withSpinner(spinner, () => client.addComment(token, {
             workspace_id: workspaceId,
             entry_type: "stories",
             entry_id: resolved.storyId,
             author: options.author,
             description: html
+        }), {
+            successText: "评论添加成功",
+            failText: "评论添加失败"
         });
-        spinner.succeed("评论添加成功");
         success(`${created.id} ${created.created ?? ""}`.trim());
     });
     comment
         .command("list")
         .argument("<markdown-file-or-story-id>", "Markdown 文件或 TAPD 需求 ID")
         .description("查看需求评论")
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖 workspace_id")
         .addHelpText("after", `
 示例：

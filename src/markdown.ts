@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import matter from "gray-matter";
 import { marked } from "marked";
+import TurndownService from "turndown";
 import type { StoryFrontmatter } from "./types.js";
 
 export type MarkdownDocument = {
@@ -49,4 +50,21 @@ export function titleFromDocument(doc: MarkdownDocument): string {
   const heading = doc.content.match(/^#\s+(.+)$/m)?.[1]?.trim();
   if (heading) return heading;
   throw new Error("Markdown 缺少需求标题：请在 frontmatter.title 或一级标题中提供标题");
+}
+
+const turndownService = new TurndownService({
+  headingStyle: "atx",
+  codeBlockStyle: "fenced",
+  bulletListMarker: "-"
+});
+
+export function htmlToMarkdown(html: string): string {
+  return turndownService.turndown(html);
+}
+
+export async function writeMarkdown(filePath: string, frontmatter: StoryFrontmatter, content: string): Promise<void> {
+  const data = Object.fromEntries(
+    Object.entries(frontmatter).filter(([, value]) => value !== undefined)
+  );
+  await writeFile(filePath, matter.stringify(content, data), "utf8");
 }

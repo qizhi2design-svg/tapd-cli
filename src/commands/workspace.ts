@@ -3,7 +3,7 @@ import ora from "ora";
 import { TapdClient } from "../api.js";
 import { loadConfig, loadCredentials, requireConfig, resolveWorkspaceContext, saveConfig } from "../config.js";
 import { getToken } from "../session.js";
-import { info, success, table, workspaceBanner } from "../ui.js";
+import { currentWorkspaceHelpText, exitHint, info, success, table, withSpinner, workspaceBanner } from "../ui.js";
 
 async function fetchWorkspaces() {
   const config = await requireConfig();
@@ -25,6 +25,8 @@ export function registerWorkspace(program: import("commander").Command): void {
   const workspace = program
     .command("workspace")
     .description("TAPD 空间管理")
+    .addHelpCommand(false)
+    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .addHelpText("after", `
 示例：
   tapd workspace list
@@ -36,12 +38,14 @@ export function registerWorkspace(program: import("commander").Command): void {
   workspace
     .command("list")
     .description("列出空间；个人令牌模式仅显示当前默认空间")
+    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .action(async () => {
       const currentWorkspace = await resolveWorkspaceContext();
       workspaceBanner(currentWorkspace);
       const spinner = ora("拉取空间列表").start();
-      const { config, credentials, workspaces } = await fetchWorkspaces();
-      spinner.stop();
+      const { config, credentials, workspaces } = await withSpinner(spinner, () => fetchWorkspaces(), {
+        stopOnSuccess: true
+      });
       if (credentials.mode === "personal") {
         info("个人令牌模式通常不能列出企业项目，仅验证并显示当前默认空间。");
       }
@@ -56,13 +60,16 @@ export function registerWorkspace(program: import("commander").Command): void {
   workspace
     .command("add")
     .description("验证并缓存一个 workspace_id，适合个人令牌模式管理多个空间")
+    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .requiredOption("-w, --workspace-id <id>", "要添加的 workspace_id")
     .action(async (options: { workspaceId: string }) => {
       const config = await loadConfig();
       const token = await getToken();
       const spinner = ora("验证 TAPD 空间").start();
-      const workspace = await new TapdClient().verifyPersonalToken(token, options.workspaceId);
-      spinner.succeed(`空间可用：${workspace.name} (${workspace.id})`);
+      const workspace = await withSpinner(spinner, () => new TapdClient().verifyPersonalToken(token, options.workspaceId), {
+        successText: "空间可用",
+        failText: "验证 TAPD 空间失败"
+      });
       await saveConfig({
         ...config,
         companyId: config.companyId ?? workspace.companyId,
@@ -74,11 +81,13 @@ export function registerWorkspace(program: import("commander").Command): void {
   workspace
     .command("use")
     .description("选择默认空间；个人令牌模式可传 --workspace-id 验证切换")
+    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .option("-w, --workspace-id <id>", "个人令牌模式下要切换到的 workspace_id")
     .action(async (options: { workspaceId?: string }) => {
       const credentials = await loadCredentials();
       if (credentials.mode === "personal") {
         const config = await loadConfig();
+        exitHint();
         const workspaceId = options.workspaceId ?? await select({
           message: "选择默认空间",
           choices: (config.workspaces && config.workspaces.length > 0
@@ -94,8 +103,10 @@ export function registerWorkspace(program: import("commander").Command): void {
         if (!workspaceId) throw new Error("请提供 --workspace-id");
         const token = await getToken();
         const spinner = ora("验证 TAPD 空间").start();
-        const workspace = await new TapdClient().verifyPersonalToken(token, workspaceId);
-        spinner.succeed(`空间可用：${workspace.name} (${workspace.id})`);
+        const workspace = await withSpinner(spinner, () => new TapdClient().verifyPersonalToken(token, workspaceId), {
+          successText: "空间可用",
+          failText: "验证 TAPD 空间失败"
+        });
         await saveConfig({
           ...config,
           companyId: workspace.companyId ?? config.companyId,
@@ -108,8 +119,10 @@ export function registerWorkspace(program: import("commander").Command): void {
       }
 
       const spinner = ora("拉取空间列表").start();
-      const { config, workspaces } = await fetchWorkspaces();
-      spinner.stop();
+      const { config, workspaces } = await withSpinner(spinner, () => fetchWorkspaces(), {
+        stopOnSuccess: true
+      });
+      exitHint();
       const workspaceId = await select({
         message: "选择默认空间",
         choices: workspaces.map((item) => ({

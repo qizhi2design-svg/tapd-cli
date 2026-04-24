@@ -1,11 +1,12 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 const configSchema = z.object({
     companyId: z.string().optional(),
     defaultWorkspaceId: z.string().optional(),
     defaultWorkspaceName: z.string().optional(),
+    defaultCreator: z.string().optional(),
     workspaces: z.array(z.object({
         id: z.string(),
         name: z.string(),
@@ -76,6 +77,21 @@ export async function resolveWorkspaceContext(cwd = process.cwd(), override) {
     if (!id) {
         throw new Error("缺少默认 workspace_id，请先运行 tapd init 或 tapd workspace use");
     }
+    const cached = config.workspaces?.find((item) => item.id === id);
+    return {
+        id,
+        name: cached?.name ?? (id === config.defaultWorkspaceId ? config.defaultWorkspaceName : undefined)
+    };
+}
+export function resolveWorkspaceContextSync(cwd = process.cwd(), override) {
+    const file = configPath(cwd);
+    if (!existsSync(file))
+        return {};
+    const raw = readFileSync(file, "utf8");
+    const config = configSchema.parse(JSON.parse(raw));
+    const id = override ?? config.defaultWorkspaceId;
+    if (!id)
+        return {};
     const cached = config.workspaces?.find((item) => item.id === id);
     return {
         id,

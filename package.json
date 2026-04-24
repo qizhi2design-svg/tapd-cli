@@ -1,10 +1,26 @@
 {
-  "name": "@local/tapd-cli",
+  "name": "@huangqz/tapd-cli",
   "version": "0.1.0",
   "description": "Manage TAPD stories from local Markdown files.",
   "type": "module",
+  "keywords": [
+    "tapd",
+    "cli",
+    "markdown",
+    "project-management"
+  ],
+  "author": "purity3",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/qizhi2design-svg/tapd-cli.git"
+  },
+  "homepage": "https://github.com/qizhi2design-svg/tapd-cli",
+  "bugs": {
+    "url": "https://github.com/qizhi2design-svg/tapd-cli/issues"
+  },
   "bin": {
-    "tapd": "./dist/index.js"
+    "tapd": "dist/index.js"
   },
   "files": [
     "dist",
@@ -29,10 +45,12 @@
     "marked": "^15.0.6",
     "ora": "^8.1.1",
     "strip-ansi": "^7.1.0",
+    "turndown": "^7.2.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
+    "@types/turndown": "^5.0.5",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

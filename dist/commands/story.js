@@ -8,7 +8,7 @@ import { convertLocalImageReferences, hasLocalImageReferences, imageDataUri as l
 import { convertMermaidBlocks, hasMermaidBlocks, imageDataUri as mermaidImageDataUri } from "../mermaid.js";
 import { htmlToMarkdown, markdownToHtml, readMarkdown, titleFromDocument, writeMarkdown, writeFrontmatter } from "../markdown.js";
 import { getToken } from "../session.js";
-import { exitHint, info, success, table, truncate, workspaceBanner } from "../ui.js";
+import { currentWorkspaceHelpText, exitHint, info, success, table, truncate, withSpinner, workspaceBanner } from "../ui.js";
 async function chooseIteration(client, token, workspaceId) {
     const iterations = await client.listIterations(token, workspaceId);
     if (iterations.length === 0)
@@ -197,6 +197,8 @@ export function registerStory(program) {
     const story = program
         .command("story")
         .description("TAPD 需求管理")
+        .addHelpCommand(false)
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .addHelpText("after", `
 示例：
   tapd story create ./需求.md
@@ -216,6 +218,7 @@ Markdown frontmatter：
     story
         .command("list")
         .description("查询需求列表，默认加载全部，也可交互选择分类")
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
         .option("-s, --status <status>", "按状态筛选，例如 planning")
         .option("-i, --iteration-id <id>", "按迭代 ID 筛选")
@@ -287,14 +290,17 @@ Markdown frontmatter：
         if (!Number.isFinite(limit) || limit <= 0)
             throw new Error("--limit 必须是正整数");
         const spinner = ora("查询 TAPD 需求").start();
-        const stories = await client.listStories(token, {
+        const stories = await withSpinner(spinner, () => client.listStories(token, {
             workspaceId,
             limit,
             status,
             iterationId,
             label
+        }), {
+            successText: "查询完成",
+            failText: "查询 TAPD 需求失败"
         });
-        spinner.succeed(`查询完成，共 ${stories.length} 条`);
+        success(`共 ${stories.length} 条`);
         table(stories.map((item) => ({
             id: item.id,
             title: truncate(item.name, 36),
@@ -308,6 +314,7 @@ Markdown frontmatter：
         .command("create")
         .argument("<markdown-file>", "本地 Markdown 文件")
         .description("从 Markdown 创建 TAPD 需求，并写回 tapd_id")
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
         .addHelpText("after", `
 示例：
@@ -334,14 +341,14 @@ Markdown frontmatter：
         const iterationId = doc.frontmatter.iteration_id ?? await chooseIteration(client, token, workspaceId);
         const creator = doc.frontmatter.creator ?? defaultCreator ?? await chooseCreator(client, token, workspaceId);
         const spinner = ora("创建 TAPD 需求").start();
-        const created = await createStoryFromMarkdown(file, doc, client, token, workspaceId, iterationId, creator, spinner);
-        spinner.succeed("需求创建成功");
+        const created = await withSpinner(spinner, () => createStoryFromMarkdown(file, doc, client, token, workspaceId, iterationId, creator, spinner), { successText: "需求创建成功", failText: "创建 TAPD 需求失败" });
         success(`${created.name} (${created.id})`);
     });
     story
         .command("update")
         .argument("<markdown-file>", "本地 Markdown 文件")
         .description("根据 Markdown frontmatter 更新 TAPD 需求")
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖 workspace_id")
         .addHelpText("after", `
 示例：
@@ -354,46 +361,48 @@ Markdown frontmatter：
         const doc = await readMarkdown(file);
         if (!doc.frontmatter.tapd_id)
             throw new Error("Markdown frontmatter 缺少 tapd_id，无法更新");
+        const tapdId = doc.frontmatter.tapd_id;
         const workspace = await resolveWorkspaceContext(process.cwd(), doc.frontmatter.workspace_id ?? options.workspaceId);
         workspaceBanner(workspace);
         const workspaceId = workspace.id;
         const client = new TapdClient();
         const token = await getToken(client);
         const spinner = ora("更新 TAPD 需求").start();
-        if (hasUploadableLocalResources(doc.content))
-            spinner.text = "上传本地图片资源并更新需求";
-        let updated;
-        try {
-            await client.getStory(token, workspaceId, doc.frontmatter.tapd_id);
-            updated = await updateStoryFromMarkdown(client, token, {
-                id: doc.frontmatter.tapd_id,
-                workspace_id: workspaceId,
-                name: titleFromDocument(doc),
-                iteration_id: doc.frontmatter.iteration_id,
-                creator: doc.frontmatter.creator,
-                owner: doc.frontmatter.owner,
-                label: doc.frontmatter.label,
-                status: doc.frontmatter.status
-            }, doc, workspaceId, doc.frontmatter.tapd_id, doc.frontmatter.creator);
-        }
-        catch (error) {
-            if (!isStoryNotFoundError(error, doc.frontmatter.tapd_id))
-                throw error;
-            spinner.text = "TAPD 需求不存在，重新创建需求";
-            updated = await createStoryFromMarkdown(file, doc, client, token, workspaceId, doc.frontmatter.iteration_id, doc.frontmatter.creator, spinner);
-        }
+        const updated = await withSpinner(spinner, async () => {
+            if (hasUploadableLocalResources(doc.content))
+                spinner.text = "上传本地图片资源并更新需求";
+            try {
+                await client.getStory(token, workspaceId, tapdId);
+                return await updateStoryFromMarkdown(client, token, {
+                    id: tapdId,
+                    workspace_id: workspaceId,
+                    name: titleFromDocument(doc),
+                    iteration_id: doc.frontmatter.iteration_id,
+                    creator: doc.frontmatter.creator,
+                    owner: doc.frontmatter.owner,
+                    label: doc.frontmatter.label,
+                    status: doc.frontmatter.status
+                }, doc, workspaceId, tapdId, doc.frontmatter.creator);
+            }
+            catch (error) {
+                if (!isStoryNotFoundError(error, tapdId))
+                    throw error;
+                spinner.text = "TAPD 需求不存在，重新创建需求";
+                return await createStoryFromMarkdown(file, doc, client, token, workspaceId, doc.frontmatter.iteration_id, doc.frontmatter.creator, spinner);
+            }
+        }, { successText: "需求更新成功", failText: "更新 TAPD 需求失败" });
         await writeFrontmatter(file, {
             workspace_id: workspaceId,
             tapd_id: updated.id,
             updated_at: updated.modified ?? new Date().toISOString()
         });
-        spinner.succeed("需求更新成功");
         success(`${updated.name} (${updated.id})`);
     });
     story
         .command("get")
         .argument("<story-id>", "TAPD 需求 ID")
         .description("获取需求内容摘要")
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
         .addHelpText("after", `
 示例：
@@ -422,6 +431,7 @@ Markdown frontmatter：
         .argument("<story-id>", "TAPD 需求 ID")
         .argument("[output-file]", "输出 Markdown 文件路径，默认为 <story-id>.md")
         .description("拉取指定需求并转换为 Markdown 文件")
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
         .addHelpText("after", `
 示例：
@@ -440,8 +450,10 @@ Markdown frontmatter：
         const client = new TapdClient();
         const token = await getToken(client);
         const spinner = ora("拉取 TAPD 需求").start();
-        const storyData = await client.getStory(token, workspaceId, storyId);
-        spinner.succeed("需求拉取成功");
+        const storyData = await withSpinner(spinner, () => client.getStory(token, workspaceId, storyId), {
+            successText: "需求拉取成功",
+            failText: "拉取 TAPD 需求失败"
+        });
         const filePath = outputFile || `${storyId}.md`;
         const fileDir = dirname(filePath);
         const assetsDir = join(fileDir, "assets");
@@ -460,35 +472,36 @@ Markdown frontmatter：
         let finalContent = content;
         if (images.length > 0) {
             spinner.start(`下载 ${images.length} 张图片`);
-            await mkdir(assetsDir, { recursive: true });
-            for (let i = 0; i < images.length; i++) {
-                const image = images[i];
-                const ext = image.url.match(/\.(\w+)$/)?.[1] || "png";
-                const filename = `image-${i + 1}.${ext}`;
-                const localPath = join(assetsDir, filename);
-                const relativePath = `./assets/${filename}`;
-                try {
-                    const attachment = await client.getImage(token, {
-                        workspaceId,
-                        imagePath: image.url
-                    });
-                    if (!attachment.download_url) {
-                        throw new Error("download_url 缺失");
+            await withSpinner(spinner, async () => {
+                await mkdir(assetsDir, { recursive: true });
+                for (let i = 0; i < images.length; i++) {
+                    const image = images[i];
+                    const ext = image.url.match(/\.(\w+)$/)?.[1] || "png";
+                    const filename = `image-${i + 1}.${ext}`;
+                    const localPath = join(assetsDir, filename);
+                    const relativePath = `./assets/${filename}`;
+                    try {
+                        const attachment = await client.getImage(token, {
+                            workspaceId,
+                            imagePath: image.url
+                        });
+                        if (!attachment.download_url) {
+                            throw new Error("download_url 缺失");
+                        }
+                        const response = await fetch(attachment.download_url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        const buffer = await response.arrayBuffer();
+                        await writeFile(localPath, Buffer.from(buffer));
+                        // 替换 Markdown 中的链接
+                        finalContent = finalContent.replace(image.match, `![${image.alt}](${relativePath})`);
                     }
-                    const response = await fetch(attachment.download_url);
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
+                    catch (error) {
+                        spinner.warn(`图片下载失败: ${image.url} - ${error instanceof Error ? error.message : String(error)}`);
                     }
-                    const buffer = await response.arrayBuffer();
-                    await writeFile(localPath, Buffer.from(buffer));
-                    // 替换 Markdown 中的链接
-                    finalContent = finalContent.replace(image.match, `![${image.alt}](${relativePath})`);
                 }
-                catch (error) {
-                    spinner.warn(`图片下载失败: ${image.url} - ${error instanceof Error ? error.message : String(error)}`);
-                }
-            }
-            spinner.succeed(`已下载 ${images.length} 张图片到 ${assetsDir}`);
+            }, { successText: `已下载 ${images.length} 张图片到 ${assetsDir}`, failText: "下载需求图片失败" });
         }
         const frontmatter = {
             tapd_id: storyData.id,

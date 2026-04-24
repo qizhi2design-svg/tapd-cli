@@ -2,11 +2,13 @@ import { input, password, select } from "@inquirer/prompts";
 import ora from "ora";
 import { TapdClient } from "../api.js";
 import { loadConfig, saveConfig, saveCredentials } from "../config.js";
-import { maskSecret, success } from "../ui.js";
+import { currentWorkspaceHelpText, exitHint, maskSecret, success } from "../ui.js";
 export function registerAuth(program) {
     const auth = program
         .command("auth")
         .description("授权与凭证管理")
+        .addHelpCommand(false)
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .addHelpText("after", `
 示例：
   tapd auth bind
@@ -19,6 +21,7 @@ export function registerAuth(program) {
     auth
         .command("bind")
         .description("绑定 TAPD 应用凭证或个人令牌")
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("--mode <mode>", "认证模式：app 或 personal")
         .option("--client-id <id>", "TAPD 应用 ID")
         .option("--client-secret <secret>", "TAPD 应用密钥")
@@ -32,6 +35,9 @@ export function registerAuth(program) {
   tapd auth bind --mode personal --personal-token *** --workspace-id 58491787
 `)
         .action(async (options) => {
+        if (!options.mode) {
+            exitHint();
+        }
         const mode = (options.mode ?? await select({
             message: "选择认证方式",
             choices: [

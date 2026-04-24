@@ -12,3 +12,7 @@ export declare function resolveWorkspaceContext(cwd?: string, override?: string)
     id: string;
     name?: string;
 }>;
+export declare function resolveWorkspaceContextSync(cwd?: string, override?: string): {
+    id?: string;
+    name?: string;
+};

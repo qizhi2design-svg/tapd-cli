@@ -2,6 +2,7 @@ export type TapdConfig = {
   companyId?: string;
   defaultWorkspaceId?: string;
   defaultWorkspaceName?: string;
+  defaultCreator?: string;
   workspaces?: Array<{
     id: string;
     name: string;

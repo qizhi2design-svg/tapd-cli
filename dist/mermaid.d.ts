@@ -1,4 +1,3 @@
-import type { TapdClient } from "./api.js";
 import type { Attachment } from "./types.js";
 export type MermaidImage = {
     index: number;
@@ -12,11 +11,6 @@ export type MermaidConversionResult = {
     images: MermaidImage[];
 };
 export type ConvertMermaidBlocksOptions = {
-    client: TapdClient;
-    token: string;
-    workspaceId: string;
-    storyId: string;
-    owner?: string;
     renderBaseUrl?: string;
 };
 export declare function hasMermaidBlocks(markdown: string): boolean;
