@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { registerLogin, registerLogout } from "./commands/auth.js";
 import { registerComment } from "./commands/comment.js";
+import { registerInfo } from "./commands/info.js";
 import { registerInit } from "./commands/init.js";
 import { registerIteration } from "./commands/iteration.js";
 import { registerStory } from "./commands/story.js";
@@ -46,6 +47,7 @@ program
     .addHelpText("after", `\n${COPY.rootHelpAfter.trim()}\n`);
 registerLogin(program);
 registerInit(program);
+registerInfo(program);
 registerStory(program);
 registerIteration(program);
 registerComment(program);

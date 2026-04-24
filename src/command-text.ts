@@ -10,6 +10,15 @@ export const COPY = {
   5. tapd comment add ./需求.md --message "已评审"
 `,
   loginDescription: "登录 TAPD 并保存本地凭证",
+  infoDescription: "查看当前授权、默认空间和创建人信息",
+  infoHelpAfter: `
+示例：
+  tapd info
+
+说明：
+  只读取本地 .tapd/credentials.json 和 .tapd/config.json
+  用于查看当前是否已授权、默认空间和默认创建人
+`,
   loginHelpAfter: `
 示例：
   tapd login

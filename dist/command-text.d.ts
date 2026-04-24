@@ -3,6 +3,8 @@ export declare const COPY: {
     readonly rootDescription: "管理 TAPD 需求、迭代空间和评论";
     readonly rootHelpAfter: "\n常用流程\n  1. tapd login\n  2. tapd init\n  3. tapd story create ./需求.md\n  4. tapd story update ./需求.md\n  5. tapd comment add ./需求.md --message \"已评审\"\n";
     readonly loginDescription: "登录 TAPD 并保存本地凭证";
+    readonly infoDescription: "查看当前授权、默认空间和创建人信息";
+    readonly infoHelpAfter: "\n示例：\n  tapd info\n\n说明：\n  只读取本地 .tapd/credentials.json 和 .tapd/config.json\n  用于查看当前是否已授权、默认空间和默认创建人\n";
     readonly loginHelpAfter: "\n示例：\n  tapd login\n  tapd login --mode app --client-id tapd-app-xxx --company-id 41988264\n  tapd login --mode personal --personal-token *** --workspace-id 58491787\n\n说明：\n  凭证保存到 .tapd/credentials.json，company_id 保存到 .tapd/config.json。\n";
     readonly logoutDescription: "退出登录并清除本地认证文件";
     readonly loginActionDescription: "登录 TAPD 并保存本地凭证";
