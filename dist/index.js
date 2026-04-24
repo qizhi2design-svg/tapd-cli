@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import chalk from "chalk";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 import { registerLogin, registerLogout } from "./commands/auth.js";
 import { registerComment } from "./commands/comment.js";
 import { registerInit } from "./commands/init.js";
@@ -9,11 +12,15 @@ import { registerStory } from "./commands/story.js";
 import { registerWorkspace } from "./commands/workspace.js";
 import { COPY } from "./command-text.js";
 import { brand, currentWorkspaceHelpText, fail } from "./ui.js";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf8"));
+const version = packageJson.version;
 const program = new Command();
 program
     .name("tapd")
     .description(COPY.rootDescription)
-    .version("0.1.0")
+    .version(version)
     .addHelpCommand(false)
     .showHelpAfterError("(使用 tapd -h 查看帮助)")
     .configureHelp({
