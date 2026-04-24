@@ -452,8 +452,10 @@ export function registerStory(program: import("commander").Command): void {
     .description(COPY.storyCreateDescription)
     .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
+    .option("-i, --iteration-id <id>", "指定迭代 ID")
+    .option("-c, --creator <creator>", "指定创建人")
     .addHelpText("after", `\n${COPY.storyCreateHelpAfter}`)
-    .action(async (file: string, options: { workspaceId?: string }) => {
+    .action(async (file: string, options: { workspaceId?: string; iterationId?: string; creator?: string }) => {
       const doc = await readMarkdown(file);
       const workspace = await resolveWorkspaceContext(process.cwd(), doc.frontmatter.workspace_id ?? options.workspaceId);
       workspaceBanner(workspace);
@@ -465,8 +467,8 @@ export function registerStory(program: import("commander").Command): void {
       const config = await loadConfig();
       const defaultCreator = config.defaultCreator;
 
-      const iterationId = doc.frontmatter.iteration_id ?? await chooseIteration(client, token, workspaceId);
-      const creator = doc.frontmatter.creator ?? defaultCreator ?? await chooseCreator(client, token, workspaceId);
+      const iterationId = options.iterationId ?? doc.frontmatter.iteration_id ?? await chooseIteration(client, token, workspaceId);
+      const creator = options.creator ?? doc.frontmatter.creator ?? defaultCreator ?? await chooseCreator(client, token, workspaceId);
 
       const spinner = ora("创建 TAPD 需求").start();
       const created = await withSpinner(

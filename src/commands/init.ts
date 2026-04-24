@@ -12,7 +12,9 @@ export function registerInit(program: import("commander").Command): void {
     .description(COPY.initDescription)
     .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .addHelpText("after", `\n${COPY.initHelpAfter}`)
-    .action(async () => {
+    .option("-w, --workspace-id <id>", "指定工作空间 ID（应用模式）")
+    .option("-c, --default-creator <creator>", "指定默认创建人")
+    .action(async (options: { workspaceId?: string; defaultCreator?: string }) => {
       const config = await loadConfig();
       const credentials = await loadCredentials().catch(() => {
         throw new Error("缺少 TAPD 凭证，请先运行 tapd login");
@@ -32,20 +34,22 @@ export function registerInit(program: import("commander").Command): void {
         });
 
         // 选择默认创建人
-        const users = await client.listUsers(token, workspace.id);
-        let defaultCreator: string | undefined;
-        if (users.length > 0) {
-          defaultCreator = await select({
-            message: COPY.initSelectCreatorMessage,
-            choices: [
-              { name: COPY.initNoDefaultCreator, value: "" },
-              ...users.map((item) => ({
-                name: `${item.user}${item.name ? ` - ${item.name}` : ""}`,
-                value: item.user
-              }))
-            ]
-          });
-          if (defaultCreator === "") defaultCreator = undefined;
+        let defaultCreator = options.defaultCreator;
+        if (!defaultCreator) {
+          const users = await client.listUsers(token, workspace.id);
+          if (users.length > 0) {
+            defaultCreator = await select({
+              message: COPY.initSelectCreatorMessage,
+              choices: [
+                { name: COPY.initNoDefaultCreator, value: "" },
+                ...users.map((item) => ({
+                  name: `${item.user}${item.name ? ` - ${item.name}` : ""}`,
+                  value: item.user
+                }))
+              ]
+            });
+            if (defaultCreator === "") defaultCreator = undefined;
+          }
         }
 
         await saveGlobalConfig({
@@ -78,30 +82,36 @@ export function registerInit(program: import("commander").Command): void {
 
       if (workspaces.length === 0) throw new Error("当前 company_id 下没有可用空间");
 
-      const workspaceId = await select({
-        message: COPY.initSelectWorkspaceMessage,
-        choices: workspaces.map((workspace) => ({
-          name: `${workspace.name} (${workspace.id})`,
-          value: workspace.id
-        }))
-      });
-      const workspace = workspaces.find((item) => item.id === workspaceId)!;
+      let workspaceId = options.workspaceId;
+      if (!workspaceId) {
+        workspaceId = await select({
+          message: COPY.initSelectWorkspaceMessage,
+          choices: workspaces.map((workspace) => ({
+            name: `${workspace.name} (${workspace.id})`,
+            value: workspace.id
+          }))
+        });
+      }
+      const workspace = workspaces.find((item) => item.id === workspaceId);
+      if (!workspace) throw new Error(`工作空间 ${workspaceId} 不存在`);
 
       // 选择默认创建人
-      const users = await client.listUsers(token, workspaceId);
-      let defaultCreator: string | undefined;
-      if (users.length > 0) {
-        defaultCreator = await select({
-          message: COPY.initSelectCreatorMessage,
-          choices: [
-            { name: COPY.initNoDefaultCreator, value: "" },
-            ...users.map((item) => ({
-              name: `${item.user}${item.name ? ` - ${item.name}` : ""}`,
-              value: item.user
-            }))
-          ]
-        });
-        if (defaultCreator === "") defaultCreator = undefined;
+      let defaultCreator = options.defaultCreator;
+      if (!defaultCreator) {
+        const users = await client.listUsers(token, workspaceId);
+        if (users.length > 0) {
+          defaultCreator = await select({
+            message: COPY.initSelectCreatorMessage,
+            choices: [
+              { name: COPY.initNoDefaultCreator, value: "" },
+              ...users.map((item) => ({
+                name: `${item.user}${item.name ? ` - ${item.name}` : ""}`,
+                value: item.user
+              }))
+            ]
+          });
+          if (defaultCreator === "") defaultCreator = undefined;
+        }
       }
 
       await saveGlobalConfig({

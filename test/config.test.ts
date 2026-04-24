@@ -12,9 +12,19 @@ import {
 
 describe("config", () => {
   it("saves project config in project .tapd directory", async () => {
+    const home = await mkdtemp(path.join(os.tmpdir(), "tapd-home-"));
     const dir = await mkdtemp(path.join(os.tmpdir(), "tapd-config-"));
+    const originalHome = process.env.HOME;
+    const originalUserProfile = process.env.USERPROFILE;
+    process.env.HOME = home;
+    process.env.USERPROFILE = home;
+
     await saveConfig({ companyId: "41988264", defaultWorkspaceId: "47232921" }, dir);
     await expect(loadConfig(dir)).resolves.toEqual({ companyId: "41988264", defaultWorkspaceId: "47232921" });
+
+    process.env.HOME = originalHome;
+    process.env.USERPROFILE = originalUserProfile;
+    await rm(home, { recursive: true, force: true });
     await rm(dir, { recursive: true, force: true });
   });
 

@@ -10,6 +10,7 @@ import { registerInfo } from "./commands/info.js";
 import { registerInit } from "./commands/init.js";
 import { registerIteration } from "./commands/iteration.js";
 import { registerStory } from "./commands/story.js";
+import { registerUpdate } from "./commands/update.js";
 import { registerWorkspace } from "./commands/workspace.js";
 import { COPY } from "./command-text.js";
 import { brand, currentWorkspaceHelpText, fail } from "./ui.js";
@@ -19,6 +20,7 @@ const __dirname = dirname(__filename);
 const packageJson = JSON.parse(
   readFileSync(join(__dirname, "../package.json"), "utf8")
 );
+const packageName = packageJson.name;
 const version = packageJson.version;
 
 const program = new Command();
@@ -54,6 +56,7 @@ program
 registerLogin(program);
 registerInit(program);
 registerInfo(program);
+registerUpdate(program, { packageName, currentVersion: version });
 registerStory(program);
 registerIteration(program);
 registerComment(program);

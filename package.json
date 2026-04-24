@@ -1,6 +1,6 @@
 {
   "name": "@huangqz/tapd-cli",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Manage TAPD stories from local Markdown files.",
   "type": "module",
   "keywords": [

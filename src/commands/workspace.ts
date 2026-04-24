@@ -116,14 +116,15 @@ export function registerWorkspace(program: import("commander").Command): void {
       const { config, workspaces } = await withSpinner(spinner, () => fetchWorkspaces(), {
         stopOnSuccess: true
       });
-      const workspaceId = await select({
+      const workspaceId = options.workspaceId ?? await select({
         message: COPY.workspaceUseSelectMessage,
         choices: workspaces.map((item) => ({
           name: `${item.name} (${item.id})${item.id === config.defaultWorkspaceId ? " 当前" : ""}`,
           value: item.id
         }))
       });
-      const current = workspaces.find((item) => item.id === workspaceId)!;
+      const current = workspaces.find((item) => item.id === workspaceId);
+      if (!current) throw new Error(`工作空间 ${workspaceId} 不存在`);
       await saveGlobalConfig({ ...await loadConfig(), defaultWorkspaceId: current.id, defaultWorkspaceName: current.name });
       success(`默认空间：${current.name} (${current.id})`);
     });

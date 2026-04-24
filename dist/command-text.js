@@ -5,12 +5,14 @@ export const COPY = {
 常用流程
   1. tapd login
   2. tapd init
-  3. tapd story create ./需求.md
-  4. tapd story update ./需求.md
-  5. tapd comment add ./需求.md --message "已评审"
+  3. tapd update
+  4. tapd story create ./需求.md
+  5. tapd story update ./需求.md
+  6. tapd comment add ./需求.md --message "已评审"
 `,
     loginDescription: "登录 TAPD 并保存本地凭证",
     infoDescription: "查看当前授权、默认空间和创建人信息",
+    updateDescription: "更新到 npm 上的最新版本",
     infoHelpAfter: `
 示例：
   tapd info
@@ -18,6 +20,14 @@ export const COPY = {
 说明：
   只读取本地 .tapd/credentials.json 和 .tapd/config.json
   用于查看当前是否已授权、默认空间和默认创建人
+`,
+    updateHelpAfter: `
+示例：
+  tapd update
+
+说明：
+  会先查询 npm 上的最新版本
+  如果当前不是最新版本，则执行 npm install -g @huangqz/tapd-cli@latest
 `,
     loginHelpAfter: `
 示例：
