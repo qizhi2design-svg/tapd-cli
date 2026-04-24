@@ -2,7 +2,13 @@ import { input, select } from "@inquirer/prompts";
 import ora from "ora";
 import { isStoryNotFoundError, TapdClient } from "../api.js";
 import { requireWorkspace, resolveWorkspaceContext } from "../config.js";
-import { convertMermaidBlocks, hasMermaidBlocks, imageDataUri, renderMermaidTemplate } from "../mermaid.js";
+import {
+  convertLocalImageReferences,
+  hasLocalImageReferences,
+  imageDataUri as localImageDataUri,
+  stripLocalDocumentLinks
+} from "../local-assets.js";
+import { convertMermaidBlocks, hasMermaidBlocks, imageDataUri as mermaidImageDataUri } from "../mermaid.js";
 import { markdownToHtml, readMarkdown, titleFromDocument, writeFrontmatter } from "../markdown.js";
 import { getToken } from "../session.js";
 import type { Story } from "../types.js";
@@ -50,6 +56,86 @@ function extractTapdImageSources(html = ""): string[] {
     .filter((src) => src.startsWith("/tfl/captures/"));
 }
 
+type PreparedImage = {
+  key: string;
+  placeholder: string;
+  base64: string;
+  alt: string;
+  dataUri: string;
+};
+
+function hasUploadableLocalResources(content: string): boolean {
+  return hasMermaidBlocks(content) || hasLocalImageReferences(content);
+}
+
+function renderPreparedImages(
+  templateContent: string,
+  images: PreparedImage[],
+  imageSrc: (image: PreparedImage) => string | undefined
+): string {
+  let content = templateContent;
+  for (const image of images) {
+    const src = imageSrc(image);
+    const replacement = src
+      ? `<p><img src="${src}" alt="${escapeHtmlAttribute(image.alt)}" style="max-width:100%;" /></p>`
+      : `<p>${escapeHtml(image.alt)}</p>`;
+    content = content.split(image.placeholder).join(replacement);
+  }
+  return content;
+}
+
+async function prepareUploadableLocalResources(
+  client: TapdClient,
+  token: string,
+  doc: Awaited<ReturnType<typeof readMarkdown>>,
+  content: string,
+  workspaceId: string,
+  storyId: string,
+  owner?: string
+): Promise<{
+  content: string;
+  templateContent: string;
+  images: PreparedImage[];
+}> {
+  const localImages = await convertLocalImageReferences(content, {
+    client,
+    token,
+    workspaceId,
+    storyId,
+    markdownFile: doc.path,
+    owner
+  });
+  const mermaid = await convertMermaidBlocks(localImages.templateContent, {
+    client,
+    token,
+    workspaceId,
+    storyId,
+    owner
+  });
+  const images: PreparedImage[] = [
+    ...localImages.images.map((image) => ({
+      key: `local:${image.index}`,
+      placeholder: image.placeholder,
+      base64: image.base64,
+      alt: image.alt || image.sourcePath,
+      dataUri: localImageDataUri(image.base64, image.sourcePath)
+    })),
+    ...mermaid.images.map((image) => ({
+      key: `mermaid:${image.index}`,
+      placeholder: image.placeholder,
+      base64: image.base64,
+      alt: `Mermaid diagram ${image.index}`,
+      dataUri: mermaidImageDataUri(image.base64)
+    }))
+  ];
+
+  return {
+    content: renderPreparedImages(mermaid.templateContent, images, (image) => image.dataUri),
+    templateContent: mermaid.templateContent,
+    images
+  };
+}
+
 async function updateStoryFromMarkdown(
   client: TapdClient,
   token: string,
@@ -59,33 +145,36 @@ async function updateStoryFromMarkdown(
   storyId: string,
   owner?: string
 ): Promise<Story> {
-  if (!hasMermaidBlocks(doc.content)) {
+  const content = stripLocalDocumentLinks(doc.content);
+  if (!hasUploadableLocalResources(content)) {
     return client.updateStory(token, {
       ...payload,
-      description: doc.html
+      description: await markdownToHtml(content)
     });
   }
 
-  const converted = await convertMermaidBlocks(doc.content, {
+  const prepared = await prepareUploadableLocalResources(
     client,
     token,
+    doc,
+    content,
     workspaceId,
     storyId,
     owner
-  });
+  );
 
-  if (converted.images.length <= 1) {
+  if (prepared.images.length <= 1) {
     return client.updateStory(token, {
       ...payload,
-      description: await markdownToHtml(converted.content)
+      description: await markdownToHtml(prepared.content)
     });
   }
 
-  const resolvedSources = new Map<number, string>();
-  for (const image of converted.images) {
-    const stepContent = renderMermaidTemplate(converted.templateContent, converted.images, (item) => {
-      if (resolvedSources.has(item.index)) return resolvedSources.get(item.index);
-      if (item.index === image.index) return imageDataUri(item.base64);
+  const resolvedSources = new Map<string, string>();
+  for (const image of prepared.images) {
+    const stepContent = renderPreparedImages(prepared.templateContent, prepared.images, (item) => {
+      if (resolvedSources.has(item.key)) return resolvedSources.get(item.key);
+      if (item.key === image.key) return item.dataUri;
       return undefined;
     });
     await client.updateStory(token, {
@@ -95,17 +184,28 @@ async function updateStoryFromMarkdown(
     const story = await client.getStory(token, workspaceId, storyId);
     const known = new Set(resolvedSources.values());
     const nextSource = extractTapdImageSources(story.description).find((src) => !known.has(src));
-    if (!nextSource) throw new Error(`Mermaid 图片 ${image.index} 上传后未找到 TAPD 图片路径`);
-    resolvedSources.set(image.index, nextSource);
+    if (!nextSource) throw new Error(`${image.alt} 上传后未找到 TAPD 图片路径`);
+    resolvedSources.set(image.key, nextSource);
   }
 
-  const finalContent = renderMermaidTemplate(converted.templateContent, converted.images, (image) => {
-    return resolvedSources.get(image.index);
+  const finalContent = renderPreparedImages(prepared.templateContent, prepared.images, (image) => {
+    return resolvedSources.get(image.key);
   });
   return client.updateStory(token, {
     ...payload,
     description: await markdownToHtml(finalContent)
   });
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return escapeHtml(value).replaceAll("\"", "&quot;");
 }
 
 async function createStoryFromMarkdown(
@@ -118,10 +218,11 @@ async function createStoryFromMarkdown(
   creator?: string,
   spinner?: ReturnType<typeof ora>
 ): Promise<Story> {
+  const content = stripLocalDocumentLinks(doc.content);
   const created = await client.createStory(token, {
     workspace_id: workspaceId,
     name: titleFromDocument(doc),
-    description: doc.html,
+    description: await markdownToHtml(content),
     iteration_id: iterationId,
     creator,
     owner: doc.frontmatter.owner,
@@ -130,8 +231,8 @@ async function createStoryFromMarkdown(
   });
 
   let finalModified = created.modified;
-  if (hasMermaidBlocks(doc.content)) {
-    if (spinner) spinner.text = "转换 Mermaid 图片并更新需求";
+  if (hasUploadableLocalResources(content)) {
+    if (spinner) spinner.text = "上传本地图片资源并更新需求";
     const updated = await updateStoryFromMarkdown(client, token, {
       id: created.id,
       workspace_id: workspaceId,
@@ -325,7 +426,7 @@ Markdown frontmatter：
       const client = new TapdClient();
       const token = await getToken(client);
       const spinner = ora("更新 TAPD 需求").start();
-      if (hasMermaidBlocks(doc.content)) spinner.text = "转换 Mermaid 图片并更新需求";
+      if (hasUploadableLocalResources(doc.content)) spinner.text = "上传本地图片资源并更新需求";
       let updated: Story;
       try {
         await client.getStory(token, workspaceId, doc.frontmatter.tapd_id);
