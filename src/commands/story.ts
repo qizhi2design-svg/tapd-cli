@@ -105,13 +105,7 @@ async function prepareUploadableLocalResources(
     markdownFile: doc.path,
     owner
   });
-  const mermaid = await convertMermaidBlocks(localImages.templateContent, {
-    client,
-    token,
-    workspaceId,
-    storyId,
-    owner
-  });
+  const mermaid = await convertMermaidBlocks(localImages.templateContent, {});
   const images: PreparedImage[] = [
     ...localImages.images.map((image) => ({
       key: `local:${image.index}`,
@@ -163,23 +157,39 @@ async function updateStoryFromMarkdown(
     owner
   );
 
-  if (prepared.images.length <= 1) {
+  const templateHtml = await markdownToHtml(prepared.templateContent);
+
+  // 分离需要上传的本地图片和直接使用 data URI 的 mermaid 图片
+  const localImagesToUpload = prepared.images.filter((img) => img.key.startsWith('local:'));
+  const mermaidImages = prepared.images.filter((img) => img.key.startsWith('mermaid:'));
+
+  // 如果没有需要上传的本地图片，直接使用 data URI
+  if (localImagesToUpload.length === 0) {
+    const finalContent = renderPreparedImages(templateHtml, prepared.images, (image) => image.dataUri);
     return client.updateStory(token, {
       ...payload,
-      description: await markdownToHtml(prepared.content)
+      description: finalContent
     });
   }
 
+  // 只对本地图片进行上传和路径解析
   const resolvedSources = new Map<string, string>();
-  for (const image of prepared.images) {
-    const stepContent = renderPreparedImages(prepared.templateContent, prepared.images, (item) => {
+
+  // mermaid 图片直接使用 data URI
+  for (const image of mermaidImages) {
+    resolvedSources.set(image.key, image.dataUri);
+  }
+
+  // 本地图片需要上传到 TAPD
+  for (const image of localImagesToUpload) {
+    const stepContent = renderPreparedImages(templateHtml, prepared.images, (item) => {
       if (resolvedSources.has(item.key)) return resolvedSources.get(item.key);
       if (item.key === image.key) return item.dataUri;
       return undefined;
     });
     await client.updateStory(token, {
       ...payload,
-      description: await markdownToHtml(stepContent)
+      description: stepContent
     });
     const story = await client.getStory(token, workspaceId, storyId);
     const known = new Set(resolvedSources.values());
@@ -188,12 +198,12 @@ async function updateStoryFromMarkdown(
     resolvedSources.set(image.key, nextSource);
   }
 
-  const finalContent = renderPreparedImages(prepared.templateContent, prepared.images, (image) => {
+  const finalContent = renderPreparedImages(templateHtml, prepared.images, (image) => {
     return resolvedSources.get(image.key);
   });
   return client.updateStory(token, {
     ...payload,
-    description: await markdownToHtml(finalContent)
+    description: finalContent
   });
 }
 

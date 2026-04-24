@@ -15,11 +15,6 @@ export type MermaidConversionResult = {
 };
 
 export type ConvertMermaidBlocksOptions = {
-  client: TapdClient;
-  token: string;
-  workspaceId: string;
-  storyId: string;
-  owner?: string;
   renderBaseUrl?: string;
 };
 
@@ -56,14 +51,8 @@ export async function convertMermaidBlocks(
     const index = images.length + 1;
     const placeholder = `@@TAPD_MERMAID_IMAGE_${index}@@`;
     const base64 = await renderMermaidPngBase64(diagram, options.renderBaseUrl);
-    const attachment = await options.client.uploadImageBase64(options.token, {
-      workspaceId: options.workspaceId,
-      entryId: options.storyId,
-      base64Data: base64,
-      owner: options.owner
-    });
 
-    images.push({ index, placeholder, base64, attachment });
+    images.push({ index, placeholder, base64 });
     templateContent += markdown.slice(lastIndex, matchIndex);
     templateContent += placeholder;
     lastIndex = matchIndex + match[0].length;
