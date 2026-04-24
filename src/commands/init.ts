@@ -2,7 +2,7 @@ import { select } from "@inquirer/prompts";
 import ora from "ora";
 import { TapdClient } from "../api.js";
 import { COPY } from "../command-text.js";
-import { loadConfig, loadCredentials, saveConfig } from "../config.js";
+import { loadConfig, loadCredentials, saveGlobalConfig, saveProjectConfig } from "../config.js";
 import { getToken } from "../session.js";
 import { currentWorkspaceHelpText, success, withSpinner } from "../ui.js";
 
@@ -48,13 +48,18 @@ export function registerInit(program: import("commander").Command): void {
           if (defaultCreator === "") defaultCreator = undefined;
         }
 
-        await saveConfig({
+        await saveGlobalConfig({
           ...config,
           companyId: workspace.companyId ?? config.companyId,
           defaultWorkspaceId: workspace.id,
           defaultWorkspaceName: workspace.name,
           defaultCreator,
           workspaces: upsertWorkspace(config.workspaces, workspace)
+        });
+        await saveProjectConfig({
+          defaultWorkspaceId: workspace.id,
+          defaultWorkspaceName: workspace.name,
+          defaultCreator
         });
         success("初始化完成");
         if (defaultCreator) {
@@ -99,8 +104,14 @@ export function registerInit(program: import("commander").Command): void {
         if (defaultCreator === "") defaultCreator = undefined;
       }
 
-      await saveConfig({
+      await saveGlobalConfig({
         ...config,
+        companyId: config.companyId,
+        defaultWorkspaceId: workspace.id,
+        defaultWorkspaceName: workspace.name,
+        defaultCreator
+      });
+      await saveProjectConfig({
         defaultWorkspaceId: workspace.id,
         defaultWorkspaceName: workspace.name,
         defaultCreator

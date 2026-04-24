@@ -2,7 +2,7 @@ import { select } from "@inquirer/prompts";
 import ora from "ora";
 import { TapdClient } from "../api.js";
 import { COPY } from "../command-text.js";
-import { loadConfig, loadCredentials, requireConfig, resolveWorkspaceContext, saveConfig } from "../config.js";
+import { loadConfig, loadCredentials, requireConfig, resolveWorkspaceContext, saveGlobalConfig } from "../config.js";
 import { getToken } from "../session.js";
 import { currentWorkspaceHelpText, info, success, table, withSpinner, workspaceBanner } from "../ui.js";
 async function fetchWorkspaces() {
@@ -61,7 +61,7 @@ export function registerWorkspace(program) {
             successText: "空间可用",
             failText: "验证 TAPD 空间失败"
         });
-        await saveConfig({
+        await saveGlobalConfig({
             ...config,
             companyId: config.companyId ?? workspace.companyId,
             workspaces: upsertWorkspace(config.workspaces, workspace)
@@ -96,7 +96,7 @@ export function registerWorkspace(program) {
                 successText: "空间可用",
                 failText: "验证 TAPD 空间失败"
             });
-            await saveConfig({
+            await saveGlobalConfig({
                 ...config,
                 companyId: workspace.companyId ?? config.companyId,
                 defaultWorkspaceId: workspace.id,
@@ -118,7 +118,7 @@ export function registerWorkspace(program) {
             }))
         });
         const current = workspaces.find((item) => item.id === workspaceId);
-        await saveConfig({ ...await loadConfig(), defaultWorkspaceId: current.id, defaultWorkspaceName: current.name });
+        await saveGlobalConfig({ ...await loadConfig(), defaultWorkspaceId: current.id, defaultWorkspaceName: current.name });
         success(`默认空间：${current.name} (${current.id})`);
     });
 }

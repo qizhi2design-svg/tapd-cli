@@ -2,7 +2,7 @@ import { input, password, select } from "@inquirer/prompts";
 import ora from "ora";
 import { TapdClient } from "../api.js";
 import { COPY } from "../command-text.js";
-import { deleteCredentials, loadConfig, saveConfig, saveCredentials } from "../config.js";
+import { deleteCredentials, loadConfig, saveGlobalConfig, saveGlobalCredentials } from "../config.js";
 import { currentWorkspaceHelpText, maskSecret, success } from "../ui.js";
 
 export function registerLogin(program: import("commander").Command): void {
@@ -59,9 +59,9 @@ export function registerLogin(program: import("commander").Command): void {
           throw error;
         }
 
-        await saveCredentials({ mode: "personal", personalToken });
+        await saveGlobalCredentials({ mode: "personal", personalToken });
         const config = await loadConfig();
-        await saveConfig({
+        await saveGlobalConfig({
           ...config,
           companyId: workspace.companyId ?? config.companyId,
           defaultWorkspaceId: workspace.id,
@@ -93,9 +93,9 @@ export function registerLogin(program: import("commander").Command): void {
         throw error;
       }
 
-      await saveCredentials({ mode: "app", clientId, clientSecret });
+      await saveGlobalCredentials({ mode: "app", clientId, clientSecret });
       const config = await loadConfig();
-      await saveConfig({ ...config, companyId });
+      await saveGlobalConfig({ ...config, companyId });
 
       success(`已保存应用 ID：${clientId}`);
       success(`已保存应用密钥：${maskSecret(clientSecret)}`);
@@ -111,7 +111,7 @@ export function registerLogout(program: import("commander").Command): void {
     .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .action(async () => {
       await deleteCredentials();
-      success("已清除本地认证文件：.tapd/credentials.json");
+      success("已清除全局认证文件：~/.tapd/credentials.json");
     });
 }
 

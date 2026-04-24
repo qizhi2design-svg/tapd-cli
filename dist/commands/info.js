@@ -1,5 +1,5 @@
 import { COPY } from "../command-text.js";
-import { loadConfig, loadCredentials } from "../config.js";
+import { configPath, globalConfigPath, globalCredentialsPath, loadConfig, loadCredentials } from "../config.js";
 import { currentWorkspaceHelpText, info, success } from "../ui.js";
 export function registerInfo(program) {
     program
@@ -22,6 +22,9 @@ export function registerInfo(program) {
         const workspaceId = config.defaultWorkspaceId ?? "未设置";
         const creator = config.defaultCreator ?? "未设置";
         const companyId = config.companyId ?? "未设置";
+        const localConfig = configPath();
+        const globalConfig = globalConfigPath();
+        const globalCredentials = globalCredentialsPath();
         if (credentials) {
             success("当前已授权");
         }
@@ -32,6 +35,8 @@ export function registerInfo(program) {
         info(`当前空间：${workspaceName} (${workspaceId})`);
         info(`默认创建人：${creator}`);
         info(`company_id：${companyId}`);
+        info(`配置来源：${localConfig === globalConfig ? "~/.tapd/config.json" : `${localConfig} -> ~/.tapd/config.json`}`);
+        info(`认证来源：${globalCredentials}`);
     });
 }
 //# sourceMappingURL=info.js.map

@@ -26,7 +26,7 @@ export const COPY = {
   tapd login --mode personal --personal-token *** --workspace-id 58491787
 
 说明：
-  凭证保存到 .tapd/credentials.json，company_id 保存到 .tapd/config.json。
+  凭证保存到 ~/.tapd/credentials.json，账号级配置保存到 ~/.tapd/config.json。
 `,
     logoutDescription: "退出登录并清除本地认证文件",
     loginActionDescription: "登录 TAPD 并保存本地凭证",
