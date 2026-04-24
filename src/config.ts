@@ -55,6 +55,13 @@ export async function loadConfig(cwd = process.cwd()): Promise<TapdConfig> {
   return readJson(configPath(cwd), configSchema, {});
 }
 
+export function loadConfigSync(cwd = process.cwd()): TapdConfig {
+  const file = configPath(cwd);
+  if (!existsSync(file)) return {};
+  const raw = readFileSync(file, "utf8");
+  return configSchema.parse(JSON.parse(raw));
+}
+
 export async function saveConfig(config: TapdConfig, cwd = process.cwd()): Promise<void> {
   await writeJson(configPath(cwd), config);
 }
@@ -67,10 +74,16 @@ export async function saveCredentials(credentials: TapdCredentials, cwd = proces
   await writeJson(credentialsPath(cwd), credentials);
 }
 
+export async function deleteCredentials(cwd = process.cwd()): Promise<void> {
+  const file = credentialsPath(cwd);
+  if (!existsSync(file)) return;
+  await import("node:fs/promises").then(({ rm }) => rm(file, { force: true }));
+}
+
 export async function requireConfig(cwd = process.cwd()): Promise<TapdConfig> {
   const config = await loadConfig(cwd);
   if (!config.companyId) {
-    throw new Error("缺少 company_id，请先运行 tapd auth bind");
+    throw new Error("缺少 company_id，请先运行 tapd login");
   }
   return config;
 }
@@ -104,10 +117,7 @@ export function resolveWorkspaceContextSync(cwd = process.cwd(), override?: stri
   id?: string;
   name?: string;
 } {
-  const file = configPath(cwd);
-  if (!existsSync(file)) return {};
-  const raw = readFileSync(file, "utf8");
-  const config = configSchema.parse(JSON.parse(raw));
+  const config = loadConfigSync(cwd);
   const id = override ?? config.defaultWorkspaceId;
   if (!id) return {};
   const cached = config.workspaces?.find((item) => item.id === id);

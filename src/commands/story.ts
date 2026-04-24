@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import ora from "ora";
 import { isStoryNotFoundError, TapdClient } from "../api.js";
+import { COPY } from "../command-text.js";
 import { requireWorkspace, resolveWorkspaceContext, loadConfig } from "../config.js";
 import {
   convertLocalImageReferences,
@@ -17,7 +18,7 @@ import { getToken } from "../session.js";
 import { iterationStatusLabel, storyStatusLabel } from "../status.js";
 import { formatTaskSummary, loadTasks, renderTaskList } from "../task-view.js";
 import type { Story, StoryFrontmatter } from "../types.js";
-import { compactList, currentWorkspaceHelpText, exitHint, info, success, table, truncate, withSpinner, workspaceBanner } from "../ui.js";
+import { compactList, currentWorkspaceHelpText, info, success, table, truncate, withSpinner, workspaceBanner } from "../ui.js";
 
 type StoryListOptions = {
   workspaceId?: string;
@@ -44,9 +45,9 @@ async function chooseIteration(client: TapdClient, token: string, workspaceId: s
   const iterations = selectableIterations(await client.listIterations(token, workspaceId));
   if (iterations.length === 0) return undefined;
   return select({
-    message: "选择迭代",
+    message: COPY.storySelectIterationMessage,
     choices: [
-      { name: "不关联迭代", value: "" },
+      { name: COPY.storyNoIteration, value: "" },
       ...iterations.map((item) => ({
         name: `${item.name} (${item.id}) ${iterationStatusLabel(item.status)}`.trim(),
         value: item.id
@@ -59,7 +60,7 @@ async function chooseCreator(client: TapdClient, token: string, workspaceId: str
   const users = await client.listUsers(token, workspaceId);
   if (users.length === 0) return undefined;
   return select({
-    message: "选择创建人",
+    message: COPY.storySelectCreatorMessage,
     choices: users.map((item) => ({
       name: `${item.user}${item.name ? ` - ${item.name}` : ""}`,
       value: item.user
@@ -309,30 +310,14 @@ async function createStoryFromMarkdown(
 export function registerStory(program: import("commander").Command): void {
   const story = program
     .command("story")
-    .description("TAPD 需求管理")
+    .description(COPY.storyDescription)
     .addHelpCommand(false)
     .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
-    .addHelpText("after", `
-示例：
-  tapd story create ./需求.md
-  tapd story update ./需求.md
-  tapd story get 1147232921001000017
-  tapd story pull 1147232921001000017
-  tapd story tasks 1147232921001000017
-
-Markdown frontmatter：
-  ---
-  title: "需求标题"
-  iteration_id: "1147232921001000005"
-  creator: "黄启智"
-  label: "local-md|cli"
-  status: "planning"
-  ---
-`);
+    .addHelpText("after", `\n${COPY.storyHelpAfter}`);
 
   story
     .command("list")
-    .description("查询需求列表，默认加载全部，也可交互选择分类")
+    .description(COPY.storyListDescription)
     .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
     .option("-s, --status <status>", "按状态筛选，例如 planning")
@@ -340,18 +325,7 @@ Markdown frontmatter：
     .option("-l, --label <label>", "按标签筛选")
     .option("--all", "直接加载全部，跳过交互分类选择")
     .option("--limit <number>", "返回数量，默认 100", "100")
-    .addHelpText("after", `
-示例：
-  tapd story list
-  tapd story list --all
-  tapd story list --status planning
-  tapd story list --iteration-id 1147232921001000005
-  tapd story list --label html-richtext
-
-说明：
-  不传筛选参数时，会出现分类下拉：全部、状态、迭代、标签。
-  默认选“全部”，最多返回 --limit 条。
-`)
+    .addHelpText("after", `\n${COPY.storyListHelpAfter}`)
     .action(async (options: StoryListOptions) => {
       const workspace = await resolveWorkspaceContext(process.cwd(), options.workspaceId);
       workspaceBanner(workspace);
@@ -366,39 +340,39 @@ Markdown frontmatter：
       const hasExplicitFilter = Boolean(status || iterationId || label || options.all);
       if (!hasExplicitFilter) {
         const category = await select({
-          message: "选择需求分类",
+          message: COPY.storySelectCategoryMessage,
           default: "all",
           choices: [
-            { name: "全部需求", value: "all" },
-            { name: "按状态筛选", value: "status" },
-            { name: "按迭代筛选", value: "iteration" },
-            { name: "按标签筛选", value: "label" }
+            { name: COPY.storyCategoryAll, value: "all" },
+            { name: COPY.storyCategoryStatus, value: "status" },
+            { name: COPY.storyCategoryIteration, value: "iteration" },
+            { name: COPY.storyCategoryLabel, value: "label" }
           ]
         });
         if (category === "status") {
           status = await select({
-            message: "选择状态",
+            message: COPY.storySelectStatusMessage,
             choices: [
-              { name: "规划中 planning", value: "planning" },
-              { name: "开发中 developing", value: "developing" },
-              { name: "已实现 resolved", value: "resolved" },
-              { name: "已拒绝 rejected", value: "rejected" },
-              { name: "自定义输入", value: "__custom__" }
+              { name: `${COPY.storyStatusPlanningOption} planning`, value: "planning" },
+              { name: `${COPY.storyStatusDevelopingOption} developing`, value: "developing" },
+              { name: `${COPY.storyStatusResolvedOption} resolved`, value: "resolved" },
+              { name: `${COPY.storyStatusRejectedOption} rejected`, value: "rejected" },
+              { name: COPY.storyStatusCustomOption, value: "__custom__" }
             ]
           });
-          if (status === "__custom__") status = await input({ message: "输入状态值", required: true });
+          if (status === "__custom__") status = await input({ message: COPY.storyInputStatusMessage, required: true });
         } else if (category === "iteration") {
           const iterations = selectableIterations(await client.listIterations(token, workspaceId));
           if (iterations.length === 0) throw new Error("当前空间没有可选的进行中迭代");
           iterationId = await select({
-            message: "选择迭代",
+            message: COPY.storySelectIterationMessage,
             choices: iterations.map((item) => ({
               name: `${item.name} (${item.id}) ${iterationStatusLabel(item.status)}`.trim(),
               value: item.id
             }))
           });
         } else if (category === "label") {
-          label = await input({ message: "输入标签", required: true });
+          label = await input({ message: COPY.storyInputLabelMessage, required: true });
         }
       }
 
@@ -423,20 +397,14 @@ Markdown frontmatter：
   story
     .command("tasks")
     .argument("<markdown-file-or-story-id>", "Markdown 文件或 TAPD 需求 ID")
-    .description("查看需求下的排期任务")
+    .description(COPY.storyTasksDescription)
     .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
     .option("-s, --status <status>", "按任务状态筛选：open/progressing/done")
     .option("-o, --owner <owner>", "按处理人筛选")
     .option("--all", "拉取全部任务")
     .option("--limit <number>", "返回数量，默认 50", "50")
-    .addHelpText("after", `
-示例：
-  tapd story tasks 1147232921001000017
-  tapd story tasks ./需求.md
-  tapd story tasks 1147232921001000017 --status progressing
-  tapd story tasks 1147232921001000017 --all
-`)
+    .addHelpText("after", `\n${COPY.storyTasksHelpAfter}`)
     .action(async (value: string, options: StoryTasksOptions) => {
       const resolved = await resolveStoryTarget(value);
       const workspace = await resolveWorkspaceContext(process.cwd(), resolved.workspaceId ?? options.workspaceId);
@@ -481,18 +449,10 @@ Markdown frontmatter：
   story
     .command("create")
     .argument("<markdown-file>", "本地 Markdown 文件")
-    .description("从 Markdown 创建 TAPD 需求，并写回 tapd_id")
+    .description(COPY.storyCreateDescription)
     .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
-    .addHelpText("after", `
-示例：
-  tapd story create ./需求.md
-  tapd story create ./需求.md --workspace-id 47232921
-
-行为：
-  缺少 iteration_id 或 creator 时，会交互式拉取 TAPD 数据并下拉选择。
-  创建成功后会写回 tapd_id、workspace_id、created_at。
-`)
+    .addHelpText("after", `\n${COPY.storyCreateHelpAfter}`)
     .action(async (file: string, options: { workspaceId?: string }) => {
       const doc = await readMarkdown(file);
       const workspace = await resolveWorkspaceContext(process.cwd(), doc.frontmatter.workspace_id ?? options.workspaceId);
@@ -505,9 +465,6 @@ Markdown frontmatter：
       const config = await loadConfig();
       const defaultCreator = config.defaultCreator;
 
-      if (!doc.frontmatter.iteration_id || (!doc.frontmatter.creator && !defaultCreator)) {
-        exitHint();
-      }
       const iterationId = doc.frontmatter.iteration_id ?? await chooseIteration(client, token, workspaceId);
       const creator = doc.frontmatter.creator ?? defaultCreator ?? await chooseCreator(client, token, workspaceId);
 
@@ -523,16 +480,10 @@ Markdown frontmatter：
   story
     .command("update")
     .argument("<markdown-file>", "本地 Markdown 文件")
-    .description("根据 Markdown frontmatter 更新 TAPD 需求")
+    .description(COPY.storyUpdateDescription)
     .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .option("-w, --workspace-id <id>", "覆盖 workspace_id")
-    .addHelpText("after", `
-示例：
-  tapd story update ./需求.md
-
-要求：
-  Markdown frontmatter 必须已有 tapd_id。
-`)
+    .addHelpText("after", `\n${COPY.storyUpdateHelpAfter}`)
     .action(async (file: string, options: { workspaceId?: string }) => {
       const doc = await readMarkdown(file);
       if (!doc.frontmatter.tapd_id) throw new Error("Markdown frontmatter 缺少 tapd_id，无法更新");
@@ -587,14 +538,10 @@ Markdown frontmatter：
   story
     .command("get")
     .argument("<story-id>", "TAPD 需求 ID")
-    .description("获取需求内容摘要")
+    .description(COPY.storyGetDescription)
     .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
-    .addHelpText("after", `
-示例：
-  tapd story get 1147232921001000017
-  tapd story get 1147232921001000017 --workspace-id 47232921
-`)
+    .addHelpText("after", `\n${COPY.storyGetHelpAfter}`)
     .action(async (storyId: string, options: { workspaceId?: string }) => {
       const workspace = await resolveWorkspaceContext(process.cwd(), options.workspaceId);
       workspaceBanner(workspace);
@@ -616,19 +563,10 @@ Markdown frontmatter：
     .command("pull")
     .argument("<story-id>", "TAPD 需求 ID")
     .argument("[output-file]", "输出 Markdown 文件路径，默认为 <story-id>.md")
-    .description("拉取指定需求并转换为 Markdown 文件")
+    .description(COPY.storyPullDescription)
     .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
-    .addHelpText("after", `
-示例：
-  tapd story pull 1147232921001000017
-  tapd story pull 1147232921001000017 ./需求.md
-  tapd story pull 1147232921001000017 --workspace-id 47232921
-
-说明：
-  会自动下载需求中的图片到 <output-file-dir>/assets/ 目录
-  并将 Markdown 中的图片链接替换为本地相对路径
-`)
+    .addHelpText("after", `\n${COPY.storyPullHelpAfter}`)
     .action(async (storyId: string, outputFile: string | undefined, options: { workspaceId?: string }) => {
       const workspace = await resolveWorkspaceContext(process.cwd(), options.workspaceId);
       workspaceBanner(workspace);

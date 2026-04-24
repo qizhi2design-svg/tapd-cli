@@ -1,7 +1,8 @@
 import chalk from "chalk";
 import { resolveWorkspaceContextSync } from "./config.js";
+import { COPY } from "./command-text.js";
 export function brand() {
-    return `${chalk.cyan.bold("tapd")} ${chalk.gray("markdown cli")}`;
+    return `${chalk.cyan.bold("tapd")} ${chalk.gray(COPY.brandSubtitle)}`;
 }
 export function success(message) {
     console.log(`${chalk.green("✓")} ${message}`);
@@ -49,9 +50,6 @@ export function truncate(value, max = 120) {
     const compact = value.replace(/\s+/g, " ").trim();
     return compact.length <= max ? compact : `${compact.slice(0, max - 1)}…`;
 }
-export function exitHint() {
-    console.log(chalk.gray("按 Ctrl+C 可以随时退出"));
-}
 export async function withSpinner(spinner, task, options = {}) {
     try {
         const result = await task();
@@ -78,8 +76,8 @@ export async function withSpinner(spinner, task, options = {}) {
 export function currentWorkspaceHelpText(cwd = process.cwd()) {
     const workspace = resolveWorkspaceContextSync(cwd);
     if (!workspace.id) {
-        return `${chalk.cyan.bold("当前空间")} ${chalk.gray("未设置")}\n`;
+        return `${chalk.cyan.bold("当前空间")} ${chalk.gray("未设置")}`;
     }
-    return `${chalk.cyan.bold("当前空间")} ${chalk.bold(workspace.name ?? "未知空间")} ${chalk.gray(`(${workspace.id})`)}\n`;
+    return `${chalk.cyan.bold("当前空间")} ${chalk.bold(workspace.name ?? "未知空间")} ${chalk.gray(`(${workspace.id})`)}`;
 }
 //# sourceMappingURL=ui.js.map

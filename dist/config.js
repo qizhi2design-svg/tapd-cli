@@ -46,6 +46,13 @@ async function writeJson(file, value) {
 export async function loadConfig(cwd = process.cwd()) {
     return readJson(configPath(cwd), configSchema, {});
 }
+export function loadConfigSync(cwd = process.cwd()) {
+    const file = configPath(cwd);
+    if (!existsSync(file))
+        return {};
+    const raw = readFileSync(file, "utf8");
+    return configSchema.parse(JSON.parse(raw));
+}
 export async function saveConfig(config, cwd = process.cwd()) {
     await writeJson(configPath(cwd), config);
 }
@@ -55,10 +62,16 @@ export async function loadCredentials(cwd = process.cwd()) {
 export async function saveCredentials(credentials, cwd = process.cwd()) {
     await writeJson(credentialsPath(cwd), credentials);
 }
+export async function deleteCredentials(cwd = process.cwd()) {
+    const file = credentialsPath(cwd);
+    if (!existsSync(file))
+        return;
+    await import("node:fs/promises").then(({ rm }) => rm(file, { force: true }));
+}
 export async function requireConfig(cwd = process.cwd()) {
     const config = await loadConfig(cwd);
     if (!config.companyId) {
-        throw new Error("缺少 company_id，请先运行 tapd auth bind");
+        throw new Error("缺少 company_id，请先运行 tapd login");
     }
     return config;
 }
@@ -84,11 +97,7 @@ export async function resolveWorkspaceContext(cwd = process.cwd(), override) {
     };
 }
 export function resolveWorkspaceContextSync(cwd = process.cwd(), override) {
-    const file = configPath(cwd);
-    if (!existsSync(file))
-        return {};
-    const raw = readFileSync(file, "utf8");
-    const config = configSchema.parse(JSON.parse(raw));
+    const config = loadConfigSync(cwd);
     const id = override ?? config.defaultWorkspaceId;
     if (!id)
         return {};

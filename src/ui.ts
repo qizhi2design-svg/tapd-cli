@@ -1,9 +1,10 @@
 import chalk from "chalk";
 import type { Ora } from "ora";
 import { resolveWorkspaceContextSync } from "./config.js";
+import { COPY } from "./command-text.js";
 
 export function brand(): string {
-  return `${chalk.cyan.bold("tapd")} ${chalk.gray("markdown cli")}`;
+  return `${chalk.cyan.bold("tapd")} ${chalk.gray(COPY.brandSubtitle)}`;
 }
 
 export function success(message: string): void {
@@ -65,10 +66,6 @@ export function truncate(value: string | undefined, max = 120): string {
   return compact.length <= max ? compact : `${compact.slice(0, max - 1)}…`;
 }
 
-export function exitHint(): void {
-  console.log(chalk.gray("按 Ctrl+C 可以随时退出"));
-}
-
 export async function withSpinner<T>(
   spinner: Ora,
   task: () => Promise<T>,
@@ -97,7 +94,7 @@ export async function withSpinner<T>(
 export function currentWorkspaceHelpText(cwd = process.cwd()): string {
   const workspace = resolveWorkspaceContextSync(cwd);
   if (!workspace.id) {
-    return `${chalk.cyan.bold("当前空间")} ${chalk.gray("未设置")}\n`;
+    return `${chalk.cyan.bold("当前空间")} ${chalk.gray("未设置")}`;
   }
-  return `${chalk.cyan.bold("当前空间")} ${chalk.bold(workspace.name ?? "未知空间")} ${chalk.gray(`(${workspace.id})`)}\n`;
+  return `${chalk.cyan.bold("当前空间")} ${chalk.bold(workspace.name ?? "未知空间")} ${chalk.gray(`(${workspace.id})`)}`;
 }

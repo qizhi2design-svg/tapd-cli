@@ -1,32 +1,26 @@
 import { select } from "@inquirer/prompts";
 import ora from "ora";
 import { TapdClient } from "../api.js";
+import { COPY } from "../command-text.js";
 import { loadConfig, loadCredentials, saveConfig } from "../config.js";
 import { getToken } from "../session.js";
-import { currentWorkspaceHelpText, exitHint, success, withSpinner } from "../ui.js";
+import { currentWorkspaceHelpText, success, withSpinner } from "../ui.js";
 export function registerInit(program) {
     program
         .command("init")
-        .description("初始化当前项目，选择默认 TAPD 空间")
+        .description(COPY.initDescription)
         .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
-        .addHelpText("after", `
-示例：
-  tapd init
-
-说明：
-  应用凭证模式会读取 company_id 并拉取空间列表供下拉选择。
-  个人令牌模式会验证当前默认 workspace，因为个人令牌通常不能列出企业项目。
-`)
+        .addHelpText("after", `\n${COPY.initHelpAfter}`)
         .action(async () => {
         const config = await loadConfig();
         const credentials = await loadCredentials().catch(() => {
-            throw new Error("缺少 TAPD 凭证，请先运行 tapd auth bind");
+            throw new Error("缺少 TAPD 凭证，请先运行 tapd login");
         });
         const client = new TapdClient();
         const token = await getToken(client);
         if (credentials.mode === "personal") {
             if (!config.defaultWorkspaceId) {
-                throw new Error("个人令牌模式缺少默认 workspace_id，请重新运行 tapd auth bind --mode personal --workspace-id <id>");
+                throw new Error("个人令牌模式缺少默认 workspace_id，请重新运行 tapd login --mode personal --workspace-id <id>");
             }
             const defaultWorkspaceId = config.defaultWorkspaceId;
             const spinner = ora("验证默认 TAPD 空间").start();
@@ -37,11 +31,10 @@ export function registerInit(program) {
             const users = await client.listUsers(token, workspace.id);
             let defaultCreator;
             if (users.length > 0) {
-                exitHint();
                 defaultCreator = await select({
-                    message: "选择默认创建人",
+                    message: COPY.initSelectCreatorMessage,
                     choices: [
-                        { name: "不设置默认创建人", value: "" },
+                        { name: COPY.initNoDefaultCreator, value: "" },
                         ...users.map((item) => ({
                             name: `${item.user}${item.name ? ` - ${item.name}` : ""}`,
                             value: item.user
@@ -66,7 +59,7 @@ export function registerInit(program) {
             return;
         }
         if (!config.companyId)
-            throw new Error("缺少 company_id，请先运行 tapd auth bind");
+            throw new Error("缺少 company_id，请先运行 tapd login");
         const spinner = ora("拉取 TAPD 空间列表").start();
         const companyId = config.companyId;
         const workspaces = await withSpinner(spinner, () => client.listWorkspaces(token, companyId), {
@@ -74,9 +67,8 @@ export function registerInit(program) {
         });
         if (workspaces.length === 0)
             throw new Error("当前 company_id 下没有可用空间");
-        exitHint();
         const workspaceId = await select({
-            message: "选择默认空间",
+            message: COPY.initSelectWorkspaceMessage,
             choices: workspaces.map((workspace) => ({
                 name: `${workspace.name} (${workspace.id})`,
                 value: workspace.id
@@ -88,9 +80,9 @@ export function registerInit(program) {
         let defaultCreator;
         if (users.length > 0) {
             defaultCreator = await select({
-                message: "选择默认创建人",
+                message: COPY.initSelectCreatorMessage,
                 choices: [
-                    { name: "不设置默认创建人", value: "" },
+                    { name: COPY.initNoDefaultCreator, value: "" },
                     ...users.map((item) => ({
                         name: `${item.user}${item.name ? ` - ${item.name}` : ""}`,
                         value: item.user

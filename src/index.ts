@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import chalk from "chalk";
-import { registerAuth } from "./commands/auth.js";
+import { registerLogin, registerLogout } from "./commands/auth.js";
 import { registerComment } from "./commands/comment.js";
 import { registerInit } from "./commands/init.js";
 import { registerIteration } from "./commands/iteration.js";
 import { registerStory } from "./commands/story.js";
 import { registerWorkspace } from "./commands/workspace.js";
+import { COPY } from "./command-text.js";
 import { brand, currentWorkspaceHelpText, fail } from "./ui.js";
 
 const program = new Command();
 
 program
   .name("tapd")
-  .description("用本地 Markdown 管理 TAPD 需求、迭代空间和评论")
+  .description(COPY.rootDescription)
   .version("0.1.0")
   .addHelpCommand(false)
   .showHelpAfterError("(使用 tapd -h 查看帮助)")
@@ -22,7 +23,7 @@ program
     styleCommandText: (str) => chalk.green(str),
     styleOptionText: (str) => chalk.yellow(str),
     styleArgumentText: (str) => chalk.magenta(str),
-    sortSubcommands: true,
+    sortSubcommands: false,
     sortOptions: true,
     showGlobalOptions: true,
     subcommandTerm: (cmd) => cmd.name()
@@ -37,21 +38,15 @@ program
   })
   .addHelpText("beforeAll", `${brand()}\n`)
   .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
-  .addHelpText("after", `
-${chalk.cyan.bold("常用流程")}
-  ${chalk.gray("1.")} tapd auth bind
-  ${chalk.gray("2.")} tapd init
-  ${chalk.gray("3.")} tapd story create ./需求.md
-  ${chalk.gray("4.")} tapd story update ./需求.md
-  ${chalk.gray("5.")} tapd comment add ./需求.md --message "已评审"
-`);
+  .addHelpText("after", `\n${COPY.rootHelpAfter.trim()}\n`);
 
-registerAuth(program);
+registerLogin(program);
 registerInit(program);
-registerIteration(program);
-registerWorkspace(program);
 registerStory(program);
+registerIteration(program);
 registerComment(program);
+registerWorkspace(program);
+registerLogout(program);
 
 program.parseAsync(process.argv).catch((error: unknown) => {
   // 用户按 Ctrl+C 退出时静默处理

@@ -14,10 +14,10 @@ npm install -g @huangqz/tapd-cli
 
 ```bash
 # 使用个人令牌认证
-tapd auth bind --mode personal --token YOUR_TOKEN --workspace-id YOUR_WORKSPACE_ID
+tapd login --mode personal --token YOUR_TOKEN --workspace-id YOUR_WORKSPACE_ID
 
 # 或使用开放应用凭证认证
-tapd auth bind --mode app --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
+tapd login --mode app --client-id YOUR_CLIENT_ID --client-secret YOUR_CLIENT_SECRET
 ```
 
 ### 2. 初始化项目
@@ -75,8 +75,8 @@ tapd story update ./需求.md
 
 ### 认证相关
 
-- `tapd auth bind` - 绑定 TAPD 凭证
-- `tapd auth status` - 查看认证状态
+- `tapd login` - 登录 TAPD 并保存本地凭证
+- `tapd logout` - 清除本地认证文件
 
 ### 工作空间
 

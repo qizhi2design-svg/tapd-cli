@@ -15,7 +15,6 @@ export declare function compactList(rows: Array<{
     lines?: string[];
 }>): void;
 export declare function truncate(value: string | undefined, max?: number): string;
-export declare function exitHint(): void;
 export declare function withSpinner<T>(spinner: Ora, task: () => Promise<T>, options?: {
     successText?: string;
     failText?: string;
