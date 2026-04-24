@@ -1,4 +1,5 @@
 import { input, select } from "@inquirer/prompts";
+import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import ora from "ora";
@@ -8,9 +9,14 @@ import { convertLocalImageReferences, hasLocalImageReferences, imageDataUri as l
 import { convertMermaidBlocks, hasMermaidBlocks, imageDataUri as mermaidImageDataUri } from "../mermaid.js";
 import { htmlToMarkdown, markdownToHtml, readMarkdown, titleFromDocument, writeMarkdown, writeFrontmatter } from "../markdown.js";
 import { getToken } from "../session.js";
-import { currentWorkspaceHelpText, exitHint, info, success, table, truncate, withSpinner, workspaceBanner } from "../ui.js";
+import { iterationStatusLabel, storyStatusLabel } from "../status.js";
+import { formatTaskSummary, loadTasks, renderTaskList } from "../task-view.js";
+import { compactList, currentWorkspaceHelpText, exitHint, info, success, truncate, withSpinner, workspaceBanner } from "../ui.js";
+function selectableIterations(iterations) {
+    return iterations.filter((item) => item.status !== "closed" && item.status !== "done");
+}
 async function chooseIteration(client, token, workspaceId) {
-    const iterations = await client.listIterations(token, workspaceId);
+    const iterations = selectableIterations(await client.listIterations(token, workspaceId));
     if (iterations.length === 0)
         return undefined;
     return select({
@@ -18,7 +24,7 @@ async function chooseIteration(client, token, workspaceId) {
         choices: [
             { name: "不关联迭代", value: "" },
             ...iterations.map((item) => ({
-                name: `${item.name} (${item.id}) ${item.status ?? ""}`.trim(),
+                name: `${item.name} (${item.id}) ${iterationStatusLabel(item.status)}`.trim(),
                 value: item.id
             }))
         ]
@@ -35,6 +41,21 @@ async function chooseCreator(client, token, workspaceId) {
             value: item.user
         }))
     });
+}
+async function resolveStoryTarget(value) {
+    if (!existsSync(value))
+        return { storyId: value };
+    const doc = await readMarkdown(value);
+    if (!doc.frontmatter.tapd_id)
+        throw new Error("Markdown frontmatter 缺少 tapd_id");
+    return { storyId: doc.frontmatter.tapd_id, workspaceId: doc.frontmatter.workspace_id };
+}
+function renderStoryList(stories) {
+    compactList(stories.map((item) => {
+        return {
+            title: `${truncate(item.name, 72)} (${item.id})`
+        };
+    }));
 }
 function extractTapdImageSources(html = "") {
     return [...html.matchAll(/<img[^>]+src="([^"]+)"/g)]
@@ -205,6 +226,7 @@ export function registerStory(program) {
   tapd story update ./需求.md
   tapd story get 1147232921001000017
   tapd story pull 1147232921001000017
+  tapd story tasks 1147232921001000017
 
 Markdown frontmatter：
   ---
@@ -273,11 +295,13 @@ Markdown frontmatter：
                     status = await input({ message: "输入状态值", required: true });
             }
             else if (category === "iteration") {
-                const iterations = await client.listIterations(token, workspaceId);
+                const iterations = selectableIterations(await client.listIterations(token, workspaceId));
+                if (iterations.length === 0)
+                    throw new Error("当前空间没有可选的进行中迭代");
                 iterationId = await select({
                     message: "选择迭代",
                     choices: iterations.map((item) => ({
-                        name: `${item.name} (${item.id}) ${item.status ?? ""}`.trim(),
+                        name: `${item.name} (${item.id}) ${iterationStatusLabel(item.status)}`.trim(),
                         value: item.id
                     }))
                 });
@@ -301,14 +325,58 @@ Markdown frontmatter：
             failText: "查询 TAPD 需求失败"
         });
         success(`共 ${stories.length} 条`);
-        table(stories.map((item) => ({
-            id: item.id,
-            title: truncate(item.name, 36),
-            status: item.status,
-            iteration: item.iteration_id && item.iteration_id !== "0" ? item.iteration_id : "",
-            label: truncate(item.label, 24),
-            modified: item.modified
-        })));
+        renderStoryList(stories);
+    });
+    story
+        .command("tasks")
+        .argument("<markdown-file-or-story-id>", "Markdown 文件或 TAPD 需求 ID")
+        .description("查看需求下的排期任务")
+        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
+        .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
+        .option("-s, --status <status>", "按任务状态筛选：open/progressing/done")
+        .option("-o, --owner <owner>", "按处理人筛选")
+        .option("--all", "拉取全部任务")
+        .option("--limit <number>", "返回数量，默认 50", "50")
+        .addHelpText("after", `
+示例：
+  tapd story tasks 1147232921001000017
+  tapd story tasks ./需求.md
+  tapd story tasks 1147232921001000017 --status progressing
+  tapd story tasks 1147232921001000017 --all
+`)
+        .action(async (value, options) => {
+        const resolved = await resolveStoryTarget(value);
+        const workspace = await resolveWorkspaceContext(process.cwd(), resolved.workspaceId ?? options.workspaceId);
+        workspaceBanner(workspace);
+        const workspaceId = workspace.id;
+        const client = new TapdClient();
+        const token = await getToken(client);
+        const limit = Number.parseInt(options.limit ?? "50", 10);
+        if (!Number.isFinite(limit) || limit <= 0)
+            throw new Error("--limit 必须是正整数");
+        const spinner = ora("查询需求任务").start();
+        const [storyData, taskResult] = await withSpinner(spinner, async () => Promise.all([
+            client.getStory(token, workspaceId, resolved.storyId),
+            loadTasks(client, token, {
+                workspaceId,
+                storyId: resolved.storyId,
+                status: options.status,
+                owner: options.owner,
+                limit,
+                all: options.all
+            })
+        ]), { successText: "查询完成", failText: "查询需求任务失败" });
+        info(`${storyData.name} (${storyData.id})`);
+        success(`任务总数 ${taskResult.total}，当前展示 ${taskResult.tasks.length}`);
+        if (taskResult.tasks.length === 0) {
+            info("暂无任务");
+            return;
+        }
+        info(formatTaskSummary(taskResult.tasks));
+        renderTaskList(taskResult.tasks);
+        if (!options.all && taskResult.total > taskResult.tasks.length) {
+            info(`还有 ${taskResult.total - taskResult.tasks.length} 条未展示，可使用 --all 或调大 --limit`);
+        }
     });
     story
         .command("create")
@@ -415,15 +483,12 @@ Markdown frontmatter：
         const workspaceId = workspace.id;
         const client = new TapdClient();
         const token = await getToken(client);
-        const storyData = await client.getStory(token, workspaceId, storyId);
-        table([{
-                id: storyData.id,
-                title: storyData.name,
-                status: storyData.status,
-                iteration: storyData.iteration_id,
-                label: storyData.label,
-                modified: storyData.modified
-            }]);
+        const [storyData, storyStatusMap] = await Promise.all([
+            client.getStory(token, workspaceId, storyId),
+            client.getStoryStatusMap(token, workspaceId)
+        ]);
+        info(`${storyData.name} (${storyData.id})`);
+        info(`状态：${storyStatusLabel(storyData.status, storyStatusMap)}  迭代：${storyData.iteration_id || "-"}  标签：${storyData.label || "-"}  更新时间：${storyData.modified || "-"}`);
         info(truncate(storyData.description, 300));
     });
     story

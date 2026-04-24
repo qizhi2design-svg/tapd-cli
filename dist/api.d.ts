@@ -1,4 +1,4 @@
-import type { Attachment, Comment, Iteration, Story, TapdAppCredentials, TapdToken, Workspace, WorkspaceUser } from "./types.js";
+import type { Attachment, Comment, Iteration, Story, TapdAppCredentials, TapdToken, Task, Workspace, WorkspaceUser } from "./types.js";
 type TapdResponse<T> = {
     status: number;
     info?: string;
@@ -29,6 +29,15 @@ export type ListStoriesParams = {
     iterationId?: string;
     label?: string;
 };
+export type ListTasksParams = {
+    workspaceId: string;
+    storyId?: string;
+    iterationId?: string;
+    limit?: number;
+    page?: number;
+    status?: string;
+    owner?: string;
+};
 export declare function isStoryNotFoundError(error: unknown, storyId?: string): boolean;
 export declare class TapdClient {
     private readonly baseUrl;
@@ -47,5 +56,9 @@ export declare class TapdClient {
     getImage(token: string, params: GetImageParams): Promise<Attachment>;
     addComment(token: string, payload: Record<string, string | undefined>): Promise<Comment>;
     listComments(token: string, workspaceId: string, storyId: string): Promise<Comment[]>;
+    countTasks(token: string, params: Omit<ListTasksParams, "limit" | "page">): Promise<number>;
+    listTasks(token: string, params: ListTasksParams): Promise<Task[]>;
+    getIteration(token: string, workspaceId: string, iterationId: string): Promise<Iteration>;
+    getStoryStatusMap(token: string, workspaceId: string): Promise<Record<string, string>>;
 }
 export {};

@@ -31,6 +31,18 @@ export function table(rows) {
     }
     console.table(rows);
 }
+export function compactList(rows) {
+    if (rows.length === 0) {
+        info("暂无数据");
+        return;
+    }
+    for (const [index, row] of rows.entries()) {
+        console.log(row.title);
+        for (const line of row.lines ?? []) {
+            console.log(`   ${chalk.gray(line)}`);
+        }
+    }
+}
 export function truncate(value, max = 120) {
     if (!value)
         return "";

@@ -64,6 +64,23 @@ export type Story = {
   modified?: string;
 };
 
+export type Task = {
+  id: string;
+  name: string;
+  story_id?: string;
+  status?: string;
+  owner?: string;
+  begin?: string;
+  due?: string;
+  progress?: string;
+  effort?: string;
+  effort_completed?: string;
+  remain?: string;
+  iteration_id?: string;
+  created?: string;
+  modified?: string;
+};
+
 export type Comment = {
   id: string;
   title?: string;

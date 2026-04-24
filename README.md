@@ -67,6 +67,8 @@ tapd story update ./需求.md
 - ✅ 支持 Mermaid 图表（自动渲染为图片）
 - ✅ 支持本地图片上传
 - ✅ 双向同步：从 TAPD 拉取需求到本地
+- ✅ 查看需求下的排期任务
+- ✅ 查看迭代信息和迭代任务情况
 - ✅ 评论管理
 
 ## 命令列表
@@ -82,6 +84,12 @@ tapd story update ./需求.md
 - `tapd workspace list` - 列出所有工作空间
 - `tapd workspace use` - 切换默认工作空间
 
+### 迭代
+
+- `tapd iteration list` - 查看当前空间迭代列表
+- `tapd iteration get <iteration-id>` - 查看迭代基础信息
+- `tapd iteration tasks <iteration-id>` - 查看迭代下的任务情况
+
 ### 需求管理
 
 - `tapd story create <file>` - 从 Markdown 创建需求
@@ -89,6 +97,7 @@ tapd story update ./需求.md
 - `tapd story get <story-id>` - 获取需求内容摘要
 - `tapd story pull <story-id> [output-file]` - 拉取需求到本地 Markdown
 - `tapd story list` - 列出需求
+- `tapd story tasks <story-id>` - 查看需求下的任务排期
 
 ### 评论
 

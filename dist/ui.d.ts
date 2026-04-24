@@ -10,6 +10,10 @@ export declare function workspaceBanner(workspace: {
 export declare function fail(message: string): void;
 export declare function maskSecret(value: string): string;
 export declare function table(rows: Array<Record<string, string | undefined>>): void;
+export declare function compactList(rows: Array<{
+    title: string;
+    lines?: string[];
+}>): void;
 export declare function truncate(value: string | undefined, max?: number): string;
 export declare function exitHint(): void;
 export declare function withSpinner<T>(spinner: Ora, task: () => Promise<T>, options?: {

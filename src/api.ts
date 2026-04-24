@@ -1,4 +1,4 @@
-import type { Attachment, Comment, Iteration, Story, TapdAppCredentials, TapdToken, Workspace, WorkspaceUser } from "./types.js";
+import type { Attachment, Comment, Iteration, Story, TapdAppCredentials, TapdToken, Task, Workspace, WorkspaceUser } from "./types.js";
 
 type TapdResponse<T> = {
   status: number;
@@ -34,6 +34,20 @@ export type ListStoriesParams = {
   iterationId?: string;
   label?: string;
 };
+
+export type ListTasksParams = {
+  workspaceId: string;
+  storyId?: string;
+  iterationId?: string;
+  limit?: number;
+  page?: number;
+  status?: string;
+  owner?: string;
+};
+
+type StoryFieldsInfoResponse = Record<string, {
+  options?: Record<string, string>;
+}>;
 
 export function isStoryNotFoundError(error: unknown, storyId?: string): boolean {
   if (!(error instanceof Error)) return false;
@@ -242,5 +256,61 @@ export class TapdClient {
       }
     });
     return (response.data ?? []).map((item) => item.Comment);
+  }
+
+  async countTasks(token: string, params: Omit<ListTasksParams, "limit" | "page">): Promise<number> {
+    const response = await this.request<{ count?: number | string }>("/tasks/count", {
+      token,
+      query: {
+        workspace_id: params.workspaceId,
+        story_id: params.storyId,
+        iteration_id: params.iterationId,
+        status: params.status,
+        owner: params.owner
+      }
+    });
+    const count = response.data?.count;
+    const parsed = typeof count === "string" ? Number.parseInt(count, 10) : count;
+    return Number.isFinite(parsed) ? Number(parsed) : 0;
+  }
+
+  async listTasks(token: string, params: ListTasksParams): Promise<Task[]> {
+    const response = await this.request<Array<{ Task: Task }>>("/tasks", {
+      token,
+      query: {
+        workspace_id: params.workspaceId,
+        story_id: params.storyId,
+        iteration_id: params.iterationId,
+        limit: params.limit ?? 100,
+        page: params.page ?? 1,
+        status: params.status,
+        owner: params.owner,
+        fields: "id,name,story_id,status,owner,begin,due,progress,effort,effort_completed,remain,iteration_id,created,modified"
+      }
+    });
+    return (response.data ?? []).map((item) => item.Task);
+  }
+
+  async getIteration(token: string, workspaceId: string, iterationId: string): Promise<Iteration> {
+    const response = await this.request<Array<{ Iteration: Iteration }>>("/iterations", {
+      token,
+      query: {
+        workspace_id: workspaceId,
+        id: iterationId,
+        limit: 1,
+        fields: "id,name,status,startdate,enddate,creator,description"
+      }
+    });
+    const iteration = response.data?.[0]?.Iteration;
+    if (!iteration) throw new Error(`未找到迭代：${iterationId}`);
+    return iteration;
+  }
+
+  async getStoryStatusMap(token: string, workspaceId: string): Promise<Record<string, string>> {
+    const response = await this.request<StoryFieldsInfoResponse>("/stories/get_fields_info", {
+      token,
+      query: { workspace_id: workspaceId }
+    });
+    return response.data?.status?.options ?? {};
   }
 }

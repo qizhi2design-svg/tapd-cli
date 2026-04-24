@@ -40,6 +40,25 @@ export function table(rows: Array<Record<string, string | undefined>>): void {
   console.table(rows);
 }
 
+export function compactList(
+  rows: Array<{
+    title: string;
+    lines?: string[];
+  }>
+): void {
+  if (rows.length === 0) {
+    info("暂无数据");
+    return;
+  }
+
+  for (const [index, row] of rows.entries()) {
+    console.log(row.title);
+    for (const line of row.lines ?? []) {
+      console.log(`   ${chalk.gray(line)}`);
+    }
+  }
+}
+
 export function truncate(value: string | undefined, max = 120): string {
   if (!value) return "";
   const compact = value.replace(/\s+/g, " ").trim();

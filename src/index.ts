@@ -4,6 +4,7 @@ import chalk from "chalk";
 import { registerAuth } from "./commands/auth.js";
 import { registerComment } from "./commands/comment.js";
 import { registerInit } from "./commands/init.js";
+import { registerIteration } from "./commands/iteration.js";
 import { registerStory } from "./commands/story.js";
 import { registerWorkspace } from "./commands/workspace.js";
 import { brand, currentWorkspaceHelpText, fail } from "./ui.js";
@@ -47,6 +48,7 @@ ${chalk.cyan.bold("常用流程")}
 
 registerAuth(program);
 registerInit(program);
+registerIteration(program);
 registerWorkspace(program);
 registerStory(program);
 registerComment(program);

@@ -199,5 +199,58 @@ export class TapdClient {
         });
         return (response.data ?? []).map((item) => item.Comment);
     }
+    async countTasks(token, params) {
+        const response = await this.request("/tasks/count", {
+            token,
+            query: {
+                workspace_id: params.workspaceId,
+                story_id: params.storyId,
+                iteration_id: params.iterationId,
+                status: params.status,
+                owner: params.owner
+            }
+        });
+        const count = response.data?.count;
+        const parsed = typeof count === "string" ? Number.parseInt(count, 10) : count;
+        return Number.isFinite(parsed) ? Number(parsed) : 0;
+    }
+    async listTasks(token, params) {
+        const response = await this.request("/tasks", {
+            token,
+            query: {
+                workspace_id: params.workspaceId,
+                story_id: params.storyId,
+                iteration_id: params.iterationId,
+                limit: params.limit ?? 100,
+                page: params.page ?? 1,
+                status: params.status,
+                owner: params.owner,
+                fields: "id,name,story_id,status,owner,begin,due,progress,effort,effort_completed,remain,iteration_id,created,modified"
+            }
+        });
+        return (response.data ?? []).map((item) => item.Task);
+    }
+    async getIteration(token, workspaceId, iterationId) {
+        const response = await this.request("/iterations", {
+            token,
+            query: {
+                workspace_id: workspaceId,
+                id: iterationId,
+                limit: 1,
+                fields: "id,name,status,startdate,enddate,creator,description"
+            }
+        });
+        const iteration = response.data?.[0]?.Iteration;
+        if (!iteration)
+            throw new Error(`未找到迭代：${iterationId}`);
+        return iteration;
+    }
+    async getStoryStatusMap(token, workspaceId) {
+        const response = await this.request("/stories/get_fields_info", {
+            token,
+            query: { workspace_id: workspaceId }
+        });
+        return response.data?.status?.options ?? {};
+    }
 }
 //# sourceMappingURL=api.js.map
