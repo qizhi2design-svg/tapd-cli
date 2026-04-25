@@ -1,10 +1,22 @@
 import chalk from "chalk";
 import type { Ora } from "ora";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { resolveWorkspaceContextSync } from "./config.js";
 import { COPY } from "./command-text.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf8"));
+const version = packageJson.version as string;
+
 export function brand(): string {
   return `${chalk.cyan.bold("tapd")} ${chalk.gray(COPY.brandSubtitle)}`;
+}
+
+export function currentVersionHelpText(): string {
+  return `${chalk.cyan.bold("当前版本")} ${chalk.bold(version)}`;
 }
 
 export function success(message: string): void {

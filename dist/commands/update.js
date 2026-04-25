@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { COPY } from "../command-text.js";
-import { currentWorkspaceHelpText, info, success } from "../ui.js";
+import { info, success } from "../ui.js";
 const execFileAsync = promisify(execFile);
 function npmBin() {
     return process.platform === "win32" ? "npm.cmd" : "npm";
@@ -11,7 +11,6 @@ export function registerUpdate(program, options) {
         .command("update")
         .description(COPY.updateDescription)
         .addHelpCommand(false)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .addHelpText("after", `\n${COPY.updateHelpAfter}`)
         .action(async () => {
         info(`当前版本：${options.currentVersion}`);

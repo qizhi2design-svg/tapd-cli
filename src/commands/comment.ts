@@ -6,7 +6,7 @@ import { TapdClient } from "../api.js";
 import { resolveWorkspaceContext } from "../config.js";
 import { markdownToHtml, readMarkdown } from "../markdown.js";
 import { getToken } from "../session.js";
-import { currentWorkspaceHelpText, success, table, truncate, withSpinner, workspaceBanner } from "../ui.js";
+import { success, table, truncate, withSpinner, workspaceBanner } from "../ui.js";
 
 async function resolveStoryId(value: string): Promise<{ storyId: string; workspaceId?: string }> {
   if (!existsSync(value)) return { storyId: value };
@@ -20,7 +20,6 @@ export function registerComment(program: import("commander").Command): void {
     .command("comment")
     .description("TAPD 需求评论")
     .addHelpCommand(false)
-    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .addHelpText("after", `
 示例：
   tapd comment add ./需求.md --message "已评审"
@@ -32,7 +31,6 @@ export function registerComment(program: import("commander").Command): void {
     .command("add")
     .argument("<markdown-file-or-story-id>", "Markdown 文件或 TAPD 需求 ID")
     .description("添加需求评论")
-    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .addOption(new Option("-m, --message <text>", "评论 Markdown 文本").conflicts("file"))
     .addOption(new Option("-f, --file <file>", "评论 Markdown 文件").conflicts("message"))
     .option("-w, --workspace-id <id>", "覆盖 workspace_id")
@@ -73,7 +71,6 @@ export function registerComment(program: import("commander").Command): void {
     .command("list")
     .argument("<markdown-file-or-story-id>", "Markdown 文件或 TAPD 需求 ID")
     .description("查看需求评论")
-    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .option("-w, --workspace-id <id>", "覆盖 workspace_id")
     .addHelpText("after", `
 示例：

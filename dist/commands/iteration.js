@@ -4,7 +4,7 @@ import { resolveWorkspaceContext } from "../config.js";
 import { getToken } from "../session.js";
 import { iterationStatusLabel, storyStatusLabel } from "../status.js";
 import { formatTaskSummary, loadTasks, renderTaskList } from "../task-view.js";
-import { compactList, currentWorkspaceHelpText, info, success, truncate, withSpinner, workspaceBanner } from "../ui.js";
+import { compactList, info, success, truncate, withSpinner, workspaceBanner } from "../ui.js";
 function formatStoryStatusSummary(stories, statusMap) {
     const counts = new Map();
     for (const story of stories) {
@@ -21,7 +21,6 @@ export function registerIteration(program) {
         .command("iteration")
         .description("TAPD 迭代管理")
         .addHelpCommand(false)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .addHelpText("after", `
 示例：
   tapd iteration list
@@ -31,7 +30,6 @@ export function registerIteration(program) {
     iteration
         .command("list")
         .description("查看当前空间的迭代列表")
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
         .option("-s, --status <status>", "按迭代状态筛选")
         .action(async (options) => {
@@ -55,7 +53,6 @@ export function registerIteration(program) {
         .command("get")
         .argument("<iteration-id>", "TAPD 迭代 ID")
         .description("查看迭代下的需求和汇总情况")
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
         .action(async (iterationId, options) => {
         const workspace = await resolveWorkspaceContext(process.cwd(), options.workspaceId);
@@ -93,7 +90,6 @@ export function registerIteration(program) {
         .command("tasks")
         .argument("<iteration-id>", "TAPD 迭代 ID")
         .description("查看迭代下的任务情况")
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
         .option("-s, --status <status>", "按任务状态筛选：open/progressing/done")
         .option("-o, --owner <owner>", "按处理人筛选")

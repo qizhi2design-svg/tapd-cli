@@ -3,13 +3,12 @@ import ora from "ora";
 import { TapdClient } from "../api.js";
 import { COPY } from "../command-text.js";
 import { deleteCredentials, loadConfig, saveGlobalConfig, saveGlobalCredentials } from "../config.js";
-import { currentWorkspaceHelpText, maskSecret, success } from "../ui.js";
+import { maskSecret, success } from "../ui.js";
 export function registerLogin(program) {
     program
         .command("login")
         .description(COPY.loginDescription)
         .addHelpCommand(false)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .addHelpText("after", `\n${COPY.loginHelpAfter}`)
         .option("--mode <mode>", "认证模式：app 或 personal")
         .option("--client-id <id>", "TAPD 应用 ID")
@@ -92,7 +91,6 @@ export function registerLogout(program) {
     program
         .command("logout")
         .description(COPY.logoutDescription)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .action(async () => {
         await deleteCredentials();
         success("已清除全局认证文件：~/.tapd/credentials.json");

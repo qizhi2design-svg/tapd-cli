@@ -4,7 +4,7 @@ import { TapdClient } from "../api.js";
 import { COPY } from "../command-text.js";
 import { loadConfig, loadCredentials, requireConfig, resolveWorkspaceContext, saveGlobalConfig } from "../config.js";
 import { getToken } from "../session.js";
-import { currentWorkspaceHelpText, info, success, table, withSpinner, workspaceBanner } from "../ui.js";
+import { info, success, table, withSpinner, workspaceBanner } from "../ui.js";
 
 async function fetchWorkspaces() {
   const config = await requireConfig();
@@ -27,13 +27,11 @@ export function registerWorkspace(program: import("commander").Command): void {
     .command("workspace")
     .description(COPY.workspaceDescription)
     .addHelpCommand(false)
-    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .addHelpText("after", `\n${COPY.workspaceHelpAfter}`);
 
   workspace
     .command("list")
     .description(COPY.workspaceListDescription)
-    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .action(async () => {
       const currentWorkspace = await resolveWorkspaceContext();
       workspaceBanner(currentWorkspace);
@@ -55,7 +53,6 @@ export function registerWorkspace(program: import("commander").Command): void {
   workspace
     .command("add")
     .description(COPY.workspaceAddDescription)
-    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .requiredOption("-w, --workspace-id <id>", "要添加的 workspace_id")
     .action(async (options: { workspaceId: string }) => {
       const config = await loadConfig();
@@ -76,7 +73,6 @@ export function registerWorkspace(program: import("commander").Command): void {
   workspace
     .command("use")
     .description(COPY.workspaceUseDescription)
-    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .option("-w, --workspace-id <id>", "个人令牌模式下要切换到的 workspace_id")
     .action(async (options: { workspaceId?: string }) => {
       const credentials = await loadCredentials();

@@ -1,8 +1,18 @@
 import chalk from "chalk";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { resolveWorkspaceContextSync } from "./config.js";
 import { COPY } from "./command-text.js";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf8"));
+const version = packageJson.version;
 export function brand() {
     return `${chalk.cyan.bold("tapd")} ${chalk.gray(COPY.brandSubtitle)}`;
+}
+export function currentVersionHelpText() {
+    return `${chalk.cyan.bold("当前版本")} ${chalk.bold(version)}`;
 }
 export function success(message) {
     console.log(`${chalk.green("✓")} ${message}`);

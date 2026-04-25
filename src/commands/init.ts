@@ -4,13 +4,12 @@ import { TapdClient } from "../api.js";
 import { COPY } from "../command-text.js";
 import { loadConfig, loadCredentials, saveGlobalConfig, saveProjectConfig } from "../config.js";
 import { getToken } from "../session.js";
-import { currentWorkspaceHelpText, success, withSpinner } from "../ui.js";
+import { success, withSpinner } from "../ui.js";
 
 export function registerInit(program: import("commander").Command): void {
   program
     .command("init")
     .description(COPY.initDescription)
-    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .addHelpText("after", `\n${COPY.initHelpAfter}`)
     .option("-w, --workspace-id <id>", "指定工作空间 ID（应用模式）")
     .option("-c, --default-creator <creator>", "指定默认创建人")

@@ -1,5 +1,6 @@
 import type { Ora } from "ora";
 export declare function brand(): string;
+export declare function currentVersionHelpText(): string;
 export declare function success(message: string): void;
 export declare function warn(message: string): void;
 export declare function info(message: string): void;

@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { Command } from "commander";
 import { COPY } from "../command-text.js";
-import { currentWorkspaceHelpText, info, success } from "../ui.js";
+import { info, success } from "../ui.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -20,7 +20,6 @@ export function registerUpdate(program: Command, options: UpdateOptions): void {
     .command("update")
     .description(COPY.updateDescription)
     .addHelpCommand(false)
-    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .addHelpText("after", `\n${COPY.updateHelpAfter}`)
     .action(async () => {
       info(`当前版本：${options.currentVersion}`);

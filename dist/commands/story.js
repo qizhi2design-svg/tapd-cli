@@ -12,7 +12,7 @@ import { htmlToMarkdown, markdownToHtml, readMarkdown, titleFromDocument, writeM
 import { getToken } from "../session.js";
 import { iterationStatusLabel, storyStatusLabel } from "../status.js";
 import { formatTaskSummary, loadTasks, renderTaskList } from "../task-view.js";
-import { compactList, currentWorkspaceHelpText, info, success, truncate, withSpinner, workspaceBanner } from "../ui.js";
+import { compactList, info, success, truncate, withSpinner, workspaceBanner } from "../ui.js";
 function selectableIterations(iterations) {
     return iterations.filter((item) => item.status !== "closed" && item.status !== "done");
 }
@@ -57,6 +57,23 @@ function renderStoryList(stories) {
             title: `${truncate(item.name, 72)} (${item.id})`
         };
     }));
+}
+function sanitizeMarkdownFilename(name) {
+    const sanitized = name
+        .trim()
+        .replace(/[\\/:*?"<>|]/g, "-")
+        .replace(/\s+/g, " ")
+        .replace(/\.+$/g, "");
+    return sanitized || "untitled";
+}
+function resolvePullOutputPath(outputFile, storyId, storyName) {
+    if (outputFile)
+        return outputFile;
+    const baseName = sanitizeMarkdownFilename(storyName || storyId);
+    const defaultPath = `${baseName}.md`;
+    if (!existsSync(defaultPath))
+        return defaultPath;
+    return `${baseName}-${storyId}.md`;
 }
 function extractTapdImageSources(html = "") {
     return [...html.matchAll(/<img[^>]+src="([^"]+)"/g)]
@@ -220,12 +237,10 @@ export function registerStory(program) {
         .command("story")
         .description(COPY.storyDescription)
         .addHelpCommand(false)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .addHelpText("after", `\n${COPY.storyHelpAfter}`);
     story
         .command("list")
         .description(COPY.storyListDescription)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
         .option("-s, --status <status>", "按状态筛选，例如 planning")
         .option("-i, --iteration-id <id>", "按迭代 ID 筛选")
@@ -305,7 +320,6 @@ export function registerStory(program) {
         .command("tasks")
         .argument("<markdown-file-or-story-id>", "Markdown 文件或 TAPD 需求 ID")
         .description(COPY.storyTasksDescription)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
         .option("-s, --status <status>", "按任务状态筛选：open/progressing/done")
         .option("-o, --owner <owner>", "按处理人筛选")
@@ -350,8 +364,9 @@ export function registerStory(program) {
         .command("create")
         .argument("<markdown-file>", "本地 Markdown 文件")
         .description(COPY.storyCreateDescription)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
+        .option("-i, --iteration-id <id>", "指定迭代 ID")
+        .option("-c, --creator <creator>", "指定创建人")
         .addHelpText("after", `\n${COPY.storyCreateHelpAfter}`)
         .action(async (file, options) => {
         const doc = await readMarkdown(file);
@@ -363,8 +378,8 @@ export function registerStory(program) {
         // 获取配置中的默认创建人
         const config = await loadConfig();
         const defaultCreator = config.defaultCreator;
-        const iterationId = doc.frontmatter.iteration_id ?? await chooseIteration(client, token, workspaceId);
-        const creator = doc.frontmatter.creator ?? defaultCreator ?? await chooseCreator(client, token, workspaceId);
+        const iterationId = options.iterationId ?? doc.frontmatter.iteration_id ?? await chooseIteration(client, token, workspaceId);
+        const creator = options.creator ?? doc.frontmatter.creator ?? defaultCreator ?? await chooseCreator(client, token, workspaceId);
         const spinner = ora("创建 TAPD 需求").start();
         const created = await withSpinner(spinner, () => createStoryFromMarkdown(file, doc, client, token, workspaceId, iterationId, creator, spinner), { successText: "需求创建成功", failText: "创建 TAPD 需求失败" });
         success(`${created.name} (${created.id})`);
@@ -373,7 +388,6 @@ export function registerStory(program) {
         .command("update")
         .argument("<markdown-file>", "本地 Markdown 文件")
         .description(COPY.storyUpdateDescription)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖 workspace_id")
         .addHelpText("after", `\n${COPY.storyUpdateHelpAfter}`)
         .action(async (file, options) => {
@@ -421,7 +435,6 @@ export function registerStory(program) {
         .command("get")
         .argument("<story-id>", "TAPD 需求 ID")
         .description(COPY.storyGetDescription)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
         .addHelpText("after", `\n${COPY.storyGetHelpAfter}`)
         .action(async (storyId, options) => {
@@ -441,9 +454,8 @@ export function registerStory(program) {
     story
         .command("pull")
         .argument("<story-id>", "TAPD 需求 ID")
-        .argument("[output-file]", "输出 Markdown 文件路径，默认为 <story-id>.md")
+        .argument("[output-file]", "输出 Markdown 文件路径，默认为 <需求标题>.md")
         .description(COPY.storyPullDescription)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "覆盖默认 workspace_id")
         .addHelpText("after", `\n${COPY.storyPullHelpAfter}`)
         .action(async (storyId, outputFile, options) => {
@@ -457,7 +469,7 @@ export function registerStory(program) {
             successText: "需求拉取成功",
             failText: "拉取 TAPD 需求失败"
         });
-        const filePath = outputFile || `${storyId}.md`;
+        const filePath = resolvePullOutputPath(outputFile, storyId, storyData.name);
         const fileDir = dirname(filePath);
         const assetsDir = join(fileDir, "assets");
         // 提取所有 TAPD 图片链接

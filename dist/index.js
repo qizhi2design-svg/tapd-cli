@@ -13,7 +13,7 @@ import { registerStory } from "./commands/story.js";
 import { registerUpdate } from "./commands/update.js";
 import { registerWorkspace } from "./commands/workspace.js";
 import { COPY } from "./command-text.js";
-import { brand, currentWorkspaceHelpText, fail } from "./ui.js";
+import { currentVersionHelpText, currentWorkspaceHelpText, fail } from "./ui.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const packageJson = JSON.parse(readFileSync(join(__dirname, "../package.json"), "utf8"));
@@ -39,13 +39,13 @@ program
     .configureOutput({
     writeOut: (str) => {
         // 隐藏 "Available commands in all" 标题
-        const filtered = str.replace(/Available commands in all.*?\n/g, '');
-        process.stdout.write(filtered);
+        const filtered = str.replace(/Available commands in all.*?\n/g, "");
+        const contextBlock = `${currentVersionHelpText()}\n${currentWorkspaceHelpText()}\n`;
+        const reordered = filtered.replace(/(Usage:\s[^\n]+\n(?:\n[^\n]+\n)?)/, `$1\n${contextBlock}\n`);
+        process.stdout.write(reordered);
     },
     writeErr: (str) => process.stderr.write(str)
 })
-    .addHelpText("beforeAll", `${brand()}\n`)
-    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .addHelpText("after", `\n${COPY.rootHelpAfter.trim()}\n`);
 registerLogin(program);
 registerInit(program);

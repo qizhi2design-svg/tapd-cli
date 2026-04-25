@@ -1,14 +1,13 @@
 import { Command } from "commander";
 import { COPY } from "../command-text.js";
 import { configPath, globalConfigPath, globalCredentialsPath, loadConfig, loadCredentials } from "../config.js";
-import { currentWorkspaceHelpText, info, success } from "../ui.js";
+import { info, success } from "../ui.js";
 
 export function registerInfo(program: Command): void {
   program
     .command("info")
     .description(COPY.infoDescription)
     .addHelpCommand(false)
-    .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
     .addHelpText("after", `\n${COPY.infoHelpAfter}`)
     .action(async () => {
       const [config, credentials] = await Promise.all([

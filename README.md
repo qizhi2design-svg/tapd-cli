@@ -95,7 +95,7 @@ tapd story update ./需求.md
 - `tapd story create <file>` - 从 Markdown 创建需求
 - `tapd story update <file>` - 更新需求
 - `tapd story get <story-id>` - 获取需求内容摘要
-- `tapd story pull <story-id> [output-file]` - 拉取需求到本地 Markdown
+- `tapd story pull <story-id> [output-file]` - 拉取需求到本地 Markdown，默认文件名为需求标题；若同名已存在则自动追加 `-<story-id>`
 - `tapd story list` - 列出需求
 - `tapd story tasks <story-id>` - 查看需求下的任务排期
 

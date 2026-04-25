@@ -4,7 +4,7 @@ import { TapdClient } from "../api.js";
 import { COPY } from "../command-text.js";
 import { loadConfig, loadCredentials, requireConfig, resolveWorkspaceContext, saveGlobalConfig } from "../config.js";
 import { getToken } from "../session.js";
-import { currentWorkspaceHelpText, info, success, table, withSpinner, workspaceBanner } from "../ui.js";
+import { info, success, table, withSpinner, workspaceBanner } from "../ui.js";
 async function fetchWorkspaces() {
     const config = await requireConfig();
     const credentials = await loadCredentials();
@@ -25,12 +25,10 @@ export function registerWorkspace(program) {
         .command("workspace")
         .description(COPY.workspaceDescription)
         .addHelpCommand(false)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .addHelpText("after", `\n${COPY.workspaceHelpAfter}`);
     workspace
         .command("list")
         .description(COPY.workspaceListDescription)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .action(async () => {
         const currentWorkspace = await resolveWorkspaceContext();
         workspaceBanner(currentWorkspace);
@@ -51,7 +49,6 @@ export function registerWorkspace(program) {
     workspace
         .command("add")
         .description(COPY.workspaceAddDescription)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .requiredOption("-w, --workspace-id <id>", "要添加的 workspace_id")
         .action(async (options) => {
         const config = await loadConfig();
@@ -71,7 +68,6 @@ export function registerWorkspace(program) {
     workspace
         .command("use")
         .description(COPY.workspaceUseDescription)
-        .addHelpText("before", () => `${currentWorkspaceHelpText()}\n`)
         .option("-w, --workspace-id <id>", "个人令牌模式下要切换到的 workspace_id")
         .action(async (options) => {
         const credentials = await loadCredentials();
@@ -110,7 +106,7 @@ export function registerWorkspace(program) {
         const { config, workspaces } = await withSpinner(spinner, () => fetchWorkspaces(), {
             stopOnSuccess: true
         });
-        const workspaceId = await select({
+        const workspaceId = options.workspaceId ?? await select({
             message: COPY.workspaceUseSelectMessage,
             choices: workspaces.map((item) => ({
                 name: `${item.name} (${item.id})${item.id === config.defaultWorkspaceId ? " 当前" : ""}`,
@@ -118,6 +114,8 @@ export function registerWorkspace(program) {
             }))
         });
         const current = workspaces.find((item) => item.id === workspaceId);
+        if (!current)
+            throw new Error(`工作空间 ${workspaceId} 不存在`);
         await saveGlobalConfig({ ...await loadConfig(), defaultWorkspaceId: current.id, defaultWorkspaceName: current.name });
         success(`默认空间：${current.name} (${current.id})`);
     });
